@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMG Affiliate Revenue Command Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --bg2: #1a1d27;
+  --bg3: #22263a;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0f0f0;
+  --muted: #8b8fa8;
+  --green: #22c55e;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --purple: #a855f7;
+  --teal: #14b8a6;
+  --orange: #f97316;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; }
+
+/* Header */
+.header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.header-left h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.header-left .subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.freshness { font-size: 11px; color: var(--muted); text-align: right; }
+.freshness span { display: block; }
+.refresh-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.refresh-btn:hover { background: var(--blue); border-color: var(--blue); }
+
+/* Layout */
+.page { padding: 1.25rem 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.kpi { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; position: relative; overflow: hidden; }
+.kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 10px 10px 0 0; }
+.kpi.green::before { background: var(--green); }
+.kpi.yellow::before { background: var(--yellow); }
+.kpi.red::before { background: var(--red); }
+.kpi.blue::before { background: var(--blue); }
+.kpi.purple::before { background: var(--purple); }
+.kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.kpi-value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+.kpi-note { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.kpi-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-top: 6px; }
+.badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+
+/* Two column layout */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.three-col { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 900px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+/* Cards */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; }
+.card-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+.chart-wrap { position: relative; width: 100%; }
+
+/* Executive Summary */
+.summary-list { list-style: none; }
+.summary-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: #c8cae0; line-height: 1.6; }
+.summary-list li:last-child { border-bottom: none; }
+.summary-list strong { color: var(--text); }
+.hi-green { color: var(--green); font-weight: 600; }
+.hi-red { color: var(--red); font-weight: 600; }
+.hi-yellow { color: var(--yellow); font-weight: 600; }
+.hi-blue { color: var(--blue); font-weight: 600; }
+
+/* Watchlist */
+.watch-list { display: flex; flex-direction: column; gap: 8px; }
+.watch-item { background: var(--bg3); border-radius: 7px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.watch-name { font-size: 13px; font-weight: 500; }
+.watch-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.watch-tag { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0; }
+.tag-growth { background: rgba(34,197,94,0.15); color: var(--green); }
+.tag-decline { background: rgba(239,68,68,0.15); color: var(--red); }
+.tag-missing { background: rgba(245,158,11,0.15); color: var(--yellow); }
+.tag-risk { background: rgba(168,85,247,0.15); color: var(--purple); }
+.tag-pace { background: rgba(239,68,68,0.15); color: var(--red); }
+
+/* Partner Table */
+.partner-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.partner-table th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.partner-table th:not(:first-child) { text-align: right; }
+.partner-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); font-variant-numeric: tabular-nums; }
+.partner-table td:not(:first-child) { text-align: right; }
+.partner-table tr:last-child td { border-bottom: none; }
+.partner-table tr:hover td { background: var(--bg3); }
+.trend-up { color: var(--green); }
+.trend-dn { color: var(--red); }
+.trend-flat { color: var(--muted); }
+.pct-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 2px; height: 4px; margin-top: 3px; }
+.pct-bar { height: 4px; border-radius: 2px; background: var(--blue); }
+
+/* Source split */
+.source-split { display: flex; gap: 1rem; margin-top: 0.5rem; }
+.source-block { flex: 1; background: var(--bg3); border-radius: 8px; padding: 1rem; text-align: center; }
+.source-block .sv { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.source-block .sl { font-size: 11px; color: var(--muted); }
+.source-block .sp { font-size: 13px; font-weight: 600; margin-top: 4px; }
+
+/* Loading / Error */
+.state-box { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+.state-box .icon { font-size: 32px; margin-bottom: 1rem; }
+.state-box h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
+.state-box p { font-size: 13px; line-height: 1.6; max-width: 400px; margin: 0 auto; }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Tab nav for drill-down */
+.tab-row { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+.tab-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.tab-btn.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+/* Divider label */
+.section-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin: 1.5rem 0 0.75rem; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>SMG Affiliate Revenue Command Center</h1>
+    <div class="subtitle">Non O&O Programmatic Monetization &nbsp;·&nbsp; GAM + Xandr</div>
+  </div>
+  <div class="header-right">
+    <div class="freshness" id="freshness">
+      <span id="fresh-updated">Last updated: —</span>
+      <span id="fresh-range">Period: —</span>
+    </div>
+    <button class="refresh-btn" onclick="init()">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="page" id="page">
+  <div class="state-box">
+    <div class="spinner"></div>
+    <h3>Loading data…</h3>
+    <p>Fetching live data from Google Sheets.</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+const SHEET1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQhaI9xxF-xRVcZ4QsBIvFVzEuMw-nuS65dK7Of_bb2OSJC91x4vL1OKc7V4fSLE0-vKalXgc-3LcD8/pub?gid=0&single=true&output=csv';
+const SHEET2 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQhaI9xxF-xRVcZ4QsBIvFVzEuMw-nuS65dK7Of_bb2OSJC91x4vL1OKc7V4fSLE0-vKalXgc-3LcD8/pub?gid=1409500423&single=true&output=csv';
+
+const PARTNER_COLORS = ['#3b82f6','#22c55e','#f59e0b','#a855f7','#ef4444','#14b8a6','#f97316','#ec4899','#6366f1','#84cc16'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let charts = {};
+
+const $ = id => document.getElementById(id);
+const parseNum = s => parseFloat(String(s||'').replace(/[$,%]/g,'')) || 0;
+const fmt  = (v,d=0) => '$' + v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtK = v => v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+(v/1e3).toFixed(1)+'K' : fmt(v,2);
+const fmtPct = v => (v>=0?'+':'')+v.toFixed(1)+'%';
+const daysInMonth = (y,m) => new Date(y,m,0).getDate();
+const dateLabel = d => { const p=d.split('-'); return MONTH_NAMES[+p[1]-1]+' '+parseInt(p[2]); };
+
+function destroyCharts() { Object.values(charts).forEach(c=>{ try{c.destroy()}catch(e){} }); charts={}; }
+
+function fetchCSV(url) {
+  return fetch(url)
+    .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(text => new Promise(res => Papa.parse(text,{header:true,skipEmptyLines:true,complete:r=>res(r.data)})));
+}
+
+async function init() {
+  destroyCharts();
+  $('page').innerHTML = `<div class="state-box"><div class="spinner"></div><h3>Loading data…</h3><p>Fetching live data from Google Sheets.</p></div>`;
+  try {
+    const [rows1, rows2] = await Promise.all([fetchCSV(SHEET1), fetchCSV(SHEET2)]);
+    build(rows1, rows2);
+  } catch(e) {
+    $('page').innerHTML = `<div class="state-box"><div class="icon">⚠️</div><h3>Could not load data</h3><p>Make sure both Google Sheet tabs are published as CSV.<br><br>Error: ${e.message}</p></div>`;
+  }
+}
+
+function build(rows1, rows2) {
+  const allRows = rows1.filter(r=>r.Date && r.Revenue);
+  const gamRows = allRows.filter(r=>r.Source==='GAM');
+  const xandrRows = allRows.filter(r=>r.Source==='Xandr');
+
+  const allDates = [...new Set(allRows.map(r=>r.Date))].sort();
+  const maxDate = allDates[allDates.length-1];
+  const minDate = allDates[0];
+  const [yr, mo] = maxDate.split('-').map(Number);
+  const curMonthPrefix = `${yr}-${String(mo).padStart(2,'0')}`;
+  const totalDays = daysInMonth(yr, mo);
+  const elapsedDays = parseInt(maxDate.split('-')[2]);
+  const remainingDays = totalDays - elapsedDays;
+
+  // MTD rows
+  const mtdRows = allRows.filter(r=>r.Date.startsWith(curMonthPrefix));
+  const mtdRev = mtdRows.reduce((s,r)=>s+parseNum(r.Revenue),0);
+  const mtdGAM = mtdRows.filter(r=>r.Source==='GAM').reduce((s,r)=>s+parseNum(r.Revenue),0);
+  const mtdXandr = mtdRows.filter(r=>r.Source==='Xandr').reduce((s,r)=>s+parseNum(r.Revenue),0);
+
+  // Budget
+  const budRow = rows2.find(r=>r.Month && r.Month.startsWith(curMonthPrefix));
+  const budget = budRow ? parseNum(budRow.Budget) : 0;
+  const lyActual = budRow ? parseNum(budRow['LY Actual']) : 0;
+
+  // Forecast
+  const forecast = elapsedDays > 0 ? (mtdRev / elapsedDays) * totalDays : 0;
+  const pacePct = budget > 0 ? (forecast / budget * 100) : 0;
+  const varBudget = forecast - budget;
+  const varLY = forecast - lyActual;
+  const reqDaily = remainingDays > 0 ? (budget - mtdRev) / remainingDays : 0;
+  const avgDaily = elapsedDays > 0 ? mtdRev / elapsedDays : 0;
+
+  const paceColor = pacePct >= 100 ? 'green' : pacePct >= 90 ? 'yellow' : 'red';
+  const badgeCls = pacePct >= 100 ? 'badge-green' : pacePct >= 90 ? 'badge-yellow' : 'badge-red';
+
+  // Yesterday
+  const yesterday = allDates[allDates.length-2] || allDates[allDates.length-1];
+  const ydayRev = allRows.filter(r=>r.Date===maxDate).reduce((s,r)=>s+parseNum(r.Revenue),0);
+
+  // 7-day window
+  const d7dates = allDates.slice(-7);
+  const d7prev = allDates.slice(-14,-7);
+
+  // Partner breakdown
+  const partnerMap = {};
+  allRows.forEach(r => {
+    const key = (r.Category||'Unknown').replace('SMG_','');
+    if (!partnerMap[key]) partnerMap[key] = {rev:0, imp:0, source:r.Source, d7:0, d7prev:0, yRev:0, days:{}};
+    partnerMap[key].rev += parseNum(r.Revenue);
+    partnerMap[key].imp += parseNum(r.Impressions);
+    if (d7dates.includes(r.Date)) partnerMap[key].d7 += parseNum(r.Revenue);
+    if (d7prev.includes(r.Date)) partnerMap[key].d7prev += parseNum(r.Revenue);
+    if (r.Date === maxDate) partnerMap[key].yRev += parseNum(r.Revenue);
+    partnerMap[key].days[r.Date] = (partnerMap[key].days[r.Date]||0) + parseNum(r.Revenue);
+  });
+
+  // MTD only for partner table
+  const partnerMTD = {};
+  mtdRows.forEach(r => {
+    const key = (r.Category||'Unknown').replace('SMG_','');
+    if (!partnerMTD[key]) partnerMTD[key] = {rev:0, imp:0, source:r.Source, d7:0, d7prev:0, yRev:0};
+    partnerMTD[key].rev += parseNum(r.Revenue);
+    partnerMTD[key].imp += parseNum(r.Impressions);
+  });
+  allRows.forEach(r => {
+    const key = (r.Category||'Unknown').replace('SMG_','');
+    if (!partnerMTD[key]) return;
+    if (d7dates.includes(r.Date)) partnerMTD[key].d7 += parseNum(r.Revenue);
+    if (d7prev.includes(r.Date)) partnerMTD[key].d7prev += parseNum(r.Revenue);
+    if (r.Date === maxDate) partnerMTD[key].yRev += parseNum(r.Revenue);
+  });
+
+  const partners = Object.entries(partnerMTD).sort((a,b)=>b[1].rev-a[1].rev);
+  const totalMTDRev = partners.reduce((s,[,v])=>s+v.rev,0);
+
+  // Watchlist
+  const watchlist = [];
+  partners.forEach(([name,p]) => {
+    const trendPct = p.d7prev>0 ? (p.d7-p.d7prev)/p.d7prev*100 : null;
+    const sharePct = totalMTDRev>0 ? p.rev/totalMTDRev*100 : 0;
+    if (trendPct !== null && trendPct <= -20) watchlist.push({name, tag:'decline', label:'Declining', detail:`7-day trend: ${fmtPct(trendPct)}`});
+    if (p.yRev===0 && p.d7>100) watchlist.push({name, tag:'missing', label:'Missing Data', detail:'No revenue today'});
+    if (sharePct>=10) watchlist.push({name, tag:'risk', label:'Concentration Risk', detail:`${sharePct.toFixed(1)}% of total MTD`});
+    if (trendPct !== null && trendPct >= 20) watchlist.push({name, tag:'growth', label:'Growth Driver', detail:`7-day trend: ${fmtPct(trendPct)}`});
+  });
+  if (pacePct < 95 && budget > 0) watchlist.push({name:'Overall', tag:'pace', label:'Below Pace', detail:`Forecast at ${pacePct.toFixed(1)}% of budget`});
+
+  // Daily totals
+  const dailyTotals = {};
+  const dailyGAM = {}, dailyXandr = {};
+  allRows.forEach(r => {
+    dailyTotals[r.Date] = (dailyTotals[r.Date]||0) + parseNum(r.Revenue);
+    if (r.Source==='GAM') dailyGAM[r.Date] = (dailyGAM[r.Date]||0)+parseNum(r.Revenue);
+    if (r.Source==='Xandr') dailyXandr[r.Date] = (dailyXandr[r.Date]||0)+parseNum(r.Revenue);
+  });
+
+  // Cumulative
+  const mtdDates = allDates.filter(d=>d.startsWith(curMonthPrefix));
+  let cumRev = 0;
+  const cumData = mtdDates.map(d => { cumRev += (dailyTotals[d]||0); return cumRev; });
+  const dailyBudget = budget / totalDays;
+  const cumBudget = mtdDates.map((_,i) => dailyBudget*(i+1));
+
+  // Top risers/decliners
+  const withTrend = partners.map(([n,p])=>({n,p,t:p.d7prev>0?(p.d7-p.d7prev)/p.d7prev*100:null})).filter(x=>x.t!==null);
+  const risers = [...withTrend].sort((a,b)=>b.t-a.t).slice(0,3);
+  const decliners = [...withTrend].sort((a,b)=>a.t-b.t).slice(0,3);
+
+  // Build HTML
+  $('fresh-updated').textContent = 'Updated: '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  $('fresh-range').textContent = `Period: ${dateLabel(minDate)} – ${dateLabel(maxDate)}`;
+
+  $('page').innerHTML = `
+    <!-- KPI Row -->
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Cumulative + Summary -->
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">Cumulative revenue vs budget pace <span style="color:var(--muted);font-weight:400">${MONTH_NAMES[mo-1]} ${yr}</span></div>
+        <div class="chart-wrap" style="height:220px"><canvas id="cumChart" role="img" aria-label="Cumulative revenue vs budget pace"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Executive summary</div>
+        <ul class="summary-list" id="exec-summary"></ul>
+      </div>
+    </div>
+
+    <!-- Daily trend + Source split -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Daily revenue — GAM vs Xandr</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="dailyChart" role="img" aria-label="Daily revenue by source"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Source split — MTD</div>
+        <div class="source-split" id="source-split"></div>
+        <div class="chart-wrap" style="height:160px;margin-top:1rem"><canvas id="sourceChart" role="img" aria-label="Revenue split by source"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Partner leaderboard + Watchlist -->
+    <div class="three-col">
+      <div class="card">
+        <div class="card-title">Top supply partners — MTD</div>
+        <div style="overflow-x:auto">
+          <table class="partner-table" id="partner-table"></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Watchlist <span id="watch-count" style="background:rgba(239,68,68,0.15);color:var(--red);padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700"></span></div>
+        <div class="watch-list" id="watchlist"></div>
+      </div>
+    </div>
+
+    <!-- Budget table -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">2026 budget vs last year actual</div>
+      <div id="budget-bars"></div>
+    </div>
+  `;
+
+  // KPIs
+  const kpis = [
+    {label:'MTD Revenue', value:fmtK(mtdRev), note:`${elapsedDays} of ${totalDays} days`, cls:'blue'},
+    {label:'Month-End Forecast', value:fmtK(forecast), note:`${avgDaily>0?fmtK(avgDaily)+'/day avg':''}`, cls:paceColor},
+    {label:'Monthly Budget', value:fmtK(budget), note:MONTH_NAMES[mo-1]+' '+yr, cls:'blue'},
+    {label:'Pace vs Budget', value:pacePct.toFixed(1)+'%', badge: pacePct>=100?'▲ On pace':pacePct>=90?'⚠ Near pace':'▼ Below pace', badgeCls, cls:paceColor},
+    {label:'Variance vs Budget', value:(varBudget>=0?'+':'')+fmtK(Math.abs(varBudget)), note:varBudget>=0?'ahead of budget':'behind budget', cls:varBudget>=0?'green':'red'},
+    {label:'Variance vs LY', value:(varLY>=0?'+':'')+fmtK(Math.abs(varLY)), note:varLY>=0?'vs last year':'below last year', cls:varLY>=0?'green':'red'},
+    {label:'Required Daily Rev', value:fmtK(reqDaily), note:`${remainingDays} days remaining`, cls:reqDaily<=avgDaily?'green':'yellow'},
+  ];
+  $('kpi-grid').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.cls}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      ${k.badge?`<div><span class="kpi-badge ${k.badgeCls}">${k.badge}</span></div>`:''}
+      ${k.note?`<div class="kpi-note">${k.note}</div>`:''}
+    </div>`).join('');
+
+  // Exec summary
+  const top3 = partners.slice(0,3).map(([n])=>n).join(', ');
+  const gamPct = mtdRev>0?(mtdGAM/mtdRev*100).toFixed(0):0;
+  const xandrPct = mtdRev>0?(mtdXandr/mtdRev*100).toFixed(0):0;
+  const paceWord = pacePct>=100?'<span class="hi-green">ahead of budget</span>':pacePct>=90?'<span class="hi-yellow">near budget</span>':'<span class="hi-red">below budget</span>';
+  $('exec-summary').innerHTML = [
+    `Revenue is pacing at <strong class="${pacePct>=100?'hi-green':pacePct>=90?'hi-yellow':'hi-red'}">${pacePct.toFixed(1)}% of budget</strong>, ${paceWord}. Projected month-end: <strong>${fmtK(forecast)}</strong> vs budget of <strong>${fmtK(budget)}</strong>.`,
+    `<strong>GAM</strong> contributing <span class="hi-blue">${gamPct}%</span> of MTD revenue; <strong>Xandr</strong> contributing <span class="hi-blue">${xandrPct}%</span>.`,
+    `Top partners: <strong>${top3}</strong>.`,
+    risers.length?`7-day risers: <span class="hi-green">${risers.map(r=>r.n).join(', ')}</span>.`:`No significant risers this week.`,
+    decliners.length?`7-day decliners: <span class="hi-red">${decliners.map(d=>d.n).join(', ')}</span>.`:`No significant decliners this week.`,
+    `Required daily revenue to hit budget: <strong>${fmtK(reqDaily)}/day</strong> over ${remainingDays} remaining days.`,
+  ].map(s=>`<li>${s}</li>`).join('');
+
+  // Cumulative chart
+  charts.cum = new Chart($('cumChart'),{
+    type:'line',
+    data:{
+      labels:mtdDates.map(dateLabel),
+      datasets:[
+        {label:'Actual',data:cumData,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:2,borderWidth:2},
+        {label:'Budget pace',data:cumBudget,borderColor:'rgba(245,158,11,0.6)',borderDash:[5,5],fill:false,tension:0,pointRadius:0,borderWidth:1.5},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#8b8fa8',font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+fmtK(ctx.raw)}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8b8fa8',font:{size:10},maxTicksLimit:10,maxRotation:0}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8b8fa8',font:{size:10},callback:v=>fmtK(v)}}
+      }}
+  });
+
+  // Daily chart
+  charts.daily = new Chart($('dailyChart'),{
+    type:'bar',
+    data:{
+      labels:allDates.map(dateLabel),
+      datasets:[
+        {label:'GAM',data:allDates.map(d=>dailyGAM[d]||0),backgroundColor:'#3b82f6',borderRadius:3,borderSkipped:false},
+        {label:'Xandr',data:allDates.map(d=>dailyXandr[d]||0),backgroundColor:'#a855f7',borderRadius:3,borderSkipped:false},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#8b8fa8',font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+fmtK(ctx.raw)}}},
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{color:'#8b8fa8',font:{size:10},maxTicksLimit:14,maxRotation:45}},
+        y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8b8fa8',font:{size:10},callback:v=>fmtK(v)}}
+      }}
+  });
+
+  // Source split
+  $('source-split').innerHTML = `
+    <div class="source-block">
+      <div class="sv" style="color:#3b82f6">${fmtK(mtdGAM)}</div>
+      <div class="sl">GAM</div>
+      <div class="sp" style="color:#3b82f6">${gamPct}%</div>
+    </div>
+    <div class="source-block">
+      <div class="sv" style="color:#a855f7">${fmtK(mtdXandr)}</div>
+      <div class="sl">Xandr</div>
+      <div class="sp" style="color:#a855f7">${xandrPct}%</div>
+    </div>`;
+
+  charts.source = new Chart($('sourceChart'),{
+    type:'doughnut',
+    data:{
+      labels:['GAM','Xandr'],
+      datasets:[{data:[mtdGAM,mtdXandr],backgroundColor:['#3b82f6','#a855f7'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+fmtK(ctx.raw)}}}}
+  });
+
+  // Partner table
+  $('partner-table').innerHTML = `
+    <thead><tr>
+      <th>Partner</th><th>MTD Rev</th><th>% Total</th><th>Today</th><th>7-Day Avg</th><th>7-Day Trend</th><th>eCPM</th>
+    </tr></thead>
+    <tbody>${partners.map(([name,p],i)=>{
+      const sharePct = totalMTDRev>0?p.rev/totalMTDRev*100:0;
+      const d7avg = p.d7/Math.min(7,d7dates.length);
+      const trendPct = p.d7prev>0?(p.d7-p.d7prev)/p.d7prev*100:null;
+      const ecpm = p.imp>0?p.rev/(p.imp/1000):0;
+      const trendCls = trendPct===null?'trend-flat':trendPct>5?'trend-up':trendPct<-5?'trend-dn':'trend-flat';
+      const trendStr = trendPct===null?'—':fmtPct(trendPct);
+      return `<tr>
+        <td><strong>${name}</strong><br><span style="font-size:10px;color:var(--muted)">${p.source||'GAM'}</span></td>
+        <td>${fmtK(p.rev)}</td>
+        <td><div>${sharePct.toFixed(1)}%</div><div class="pct-bar-wrap"><div class="pct-bar" style="width:${Math.min(sharePct*3,100)}%"></div></div></td>
+        <td>${fmtK(p.yRev)}</td>
+        <td>${fmtK(d7avg)}</td>
+        <td class="${trendCls}">${trendStr}</td>
+        <td>${fmt(ecpm,2)}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  // Watchlist
+  $('watch-count').textContent = watchlist.length;
+  $('watchlist').innerHTML = watchlist.length ? watchlist.map(w=>`
+    <div class="watch-item">
+      <div>
+        <div class="watch-name">${w.name}</div>
+        <div class="watch-detail">${w.detail}</div>
+      </div>
+      <span class="watch-tag tag-${w.tag}">${w.label}</span>
+    </div>`).join('') : `<div style="color:var(--muted);font-size:13px;padding:1rem 0;text-align:center">No alerts — everything looks healthy ✓</div>`;
+
+  // Budget bars
+  const maxLY = Math.max(...rows2.filter(r=>r['LY Actual']).map(r=>parseNum(r['LY Actual'])));
+  $('budget-bars').innerHTML = `
+    <div style="display:flex;gap:16px;margin-bottom:12px;font-size:11px;color:var(--muted)">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:5px"></span>Last year actual</span>
+      <span><span style="display:inline-block;width:10px;height:4px;border-radius:2px;background:#f59e0b;margin-right:5px;vertical-align:middle"></span>2026 Budget</span>
+    </div>
+    ${rows2.filter(r=>r.Month&&r.Budget).map(r=>{
+      const bud=parseNum(r.Budget), ly=parseNum(r['LY Actual']);
+      const label=MONTH_NAMES[+r.Month.split('-')[1]-1];
+      const isCur = r.Month.startsWith(curMonthPrefix);
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px">
+        <div style="width:30px;color:var(--muted);font-size:11px;${isCur?'color:#f59e0b;font-weight:700':''}">${label}</div>
+        <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:4px;height:20px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;height:100%;width:${(ly/maxLY*100).toFixed(1)}%;background:${isCur?'rgba(59,130,246,0.6)':'rgba(59,130,246,0.3)'};border-radius:4px"></div>
+          <div style="position:absolute;top:8px;left:0;height:4px;width:${(bud/maxLY*100).toFixed(1)}%;background:#f59e0b;border-radius:2px"></div>
+        </div>
+        <div style="width:68px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums">${(ly/1e6).toFixed(2)}M</div>
+        <span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;width:70px;text-align:center;${ly>=bud?'background:rgba(34,197,94,0.15);color:#22c55e':'background:rgba(239,68,68,0.15);color:#ef4444'}">${ly>=bud?'▲ ahead':'▼ behind'}</span>
+      </div>`;
+    }).join('')}`;
+}
+
+init();
+</script>
+</body>
+</html>
