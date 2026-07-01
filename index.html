@@ -144,6 +144,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .step-body code{background:var(--bg3);padding:1px 6px;border-radius:4px;font-size:11px;color:var(--teal);font-family:monospace;}
 .no-data-badge{display:inline-block;background:rgba(245,158,11,.1);color:var(--yellow);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:4px 12px;font-size:11px;margin-top:8px;}
 
+
+/* ── MONTH TOGGLE ── */
+.month-toggle-bar{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;}
+.month-toggle-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;}
+.month-btn{font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;}
+.month-btn:hover{border-color:var(--blue);color:var(--text);}
+.month-btn.active{background:var(--blue);border-color:var(--blue);color:white;}
+.month-btn.current{border-color:rgba(59,130,246,.4);}
+
 /* STATE */
 .state-box{text-align:center;padding:4rem 2rem;color:var(--muted);}
 .state-box h3{font-size:16px;color:var(--text);margin-bottom:8px;}
@@ -228,12 +237,10 @@ function refreshAll(){loadRevenue();if(SHEET_TRAFFIC)loadTraffic();else buildTra
    DRILL-DOWN
 ══════════════════════════════════════════ */
 function openDrill(partnerName){
-  console.log('openDrill called with:', partnerName, 'ALL_ROWS length:', ALL_ROWS.length);
-  const rows=ALL_ROWS.filter(r=>{
-    const key=(r.Partner||r.Category||'').replace('SMG_','').trim();
-    return key===partnerName;
-  });
-  console.log('matched rows:', rows.length);
+  const pKey=r=>r.Source==='Xandr'
+    ? (r.Partner||r.Category||'').trim()
+    : (r.Category||r.Partner||'').replace('SMG_','').trim();
+  const rows=ALL_ROWS.filter(r=>pKey(r)===partnerName);
   if(!rows.length){return;}
 
   const allDates=[...new Set(rows.map(r=>r.Date))].sort();
@@ -245,7 +252,7 @@ function openDrill(partnerName){
   const mtdRev=mtdRows.reduce((s,r)=>s+parseNum(r.Revenue),0);
   const mtdImp=mtdRows.reduce((s,r)=>s+parseNum(r.Impressions),0);
   const mtdEcpm=mtdImp>0?mtdRev/(mtdImp/1000):0;
-  const elapsedDays=parseInt(maxDate.split('-')[2]);
+  const elapsedDays=parseInt((maxDateForMonth||maxDate).split('-')[2]);
   const avgDaily=elapsedDays>0?mtdRev/elapsedDays:0;
 
   const d7dates=allDates.slice(-7);
@@ -351,6 +358,8 @@ async function loadRevenue(){
   try{
     const [rows1,rows2]=await Promise.all([fetchCSV(SHEET_REVENUE),fetchCSV(SHEET_BUDGET)]);
     ALL_ROWS=rows1.filter(r=>r.Date&&r.Revenue);
+    window._lastRevRows=ALL_ROWS;
+    window._lastBudRows=rows2;
     buildRevenue(ALL_ROWS,rows2);
   }catch(e){
     document.getElementById('rev-loading').innerHTML=`<div class="state-box"><h3>⚠️ Could not load data</h3><p>${e.message}</p></div>`;
@@ -363,10 +372,19 @@ function buildRevenue(allRows,rows2){
   const allDates=[...new Set(allRows.map(r=>r.Date))].sort();
   const maxDate=allDates[allDates.length-1];
   const minDate=allDates[0];
-  const [yr,mo]=maxDate.split('-').map(Number);
-  const curPfx=`${yr}-${String(mo).padStart(2,'0')}`;
+
+  // Determine available months and selected month
+  const allMonths=[...new Set(allDates.map(d=>d.slice(0,7)))].sort();
+  const defaultMonth=allMonths[allMonths.length-1]; // most recent
+  window._selectedMonth=window._selectedMonth||defaultMonth;
+  // If selected month no longer in data, reset to latest
+  if(!allMonths.includes(window._selectedMonth)) window._selectedMonth=defaultMonth;
+  const selMonth=window._selectedMonth;
+  const [yr,mo]=selMonth.split('-').map(Number);
+  const curPfx=selMonth;
+  const maxDateForMonth=allDates.filter(d=>d.startsWith(curPfx)).slice(-1)[0]||maxDate;
   const totalDays=daysInMonth(yr,mo);
-  const elapsedDays=parseInt(maxDate.split('-')[2]);
+  const elapsedDays=parseInt((maxDateForMonth||maxDate).split('-')[2]);
   const remainingDays=totalDays-elapsedDays;
 
   const mtdRows=allRows.filter(r=>r.Date.startsWith(curPfx));
@@ -388,15 +406,20 @@ function buildRevenue(allRows,rows2){
   const d7dates=allDates.slice(-7);
   const d7prev=allDates.slice(-14,-7);
 
+  // partnerKey: for GAM use Category (e.g. SMG_Connatix→Connatix), for Xandr use Partner
+  const partnerKey=r=>r.Source==='Xandr'
+    ? (r.Partner||r.Category||'Unknown').trim()
+    : (r.Category||r.Partner||'Unknown').replace('SMG_','').trim();
+
   const partnerMTD={};
   mtdRows.forEach(r=>{
-    const k=(r.Partner||r.Category||'Unknown').replace('SMG_','').trim();
+    const k=partnerKey(r);
     if(!partnerMTD[k])partnerMTD[k]={rev:0,imp:0,source:r.Source,d7:0,d7prev:0,yRev:0};
     partnerMTD[k].rev+=parseNum(r.Revenue);
     partnerMTD[k].imp+=parseNum(r.Impressions);
   });
   allRows.forEach(r=>{
-    const k=(r.Partner||r.Category||'Unknown').replace('SMG_','').trim();
+    const k=partnerKey(r);
     if(!partnerMTD[k])return;
     if(d7dates.includes(r.Date))partnerMTD[k].d7+=parseNum(r.Revenue);
     if(d7prev.includes(r.Date))partnerMTD[k].d7prev+=parseNum(r.Revenue);
@@ -438,6 +461,7 @@ function buildRevenue(allRows,rows2){
 
   const el=document.getElementById('rev-content');
   el.innerHTML=`
+    <div class="month-toggle-bar" id="month-toggle-bar"></div>
     <div class="kpi-grid" id="rev-kpis"></div>
     <div class="three-col">
       <div class="card">
@@ -480,6 +504,19 @@ function buildRevenue(allRows,rows2){
       <div id="rev-budget"></div>
     </div>
   `;
+
+  // Render month toggle buttons
+  const toggleBar=document.getElementById('month-toggle-bar');
+  if(toggleBar){
+    toggleBar.innerHTML='<span class="month-toggle-label">Month:</span>'+
+      allMonths.map(m=>{
+        const [y,mo]=m.split('-').map(Number);
+        const label=MONTH_NAMES[mo-1]+' '+y;
+        const isActive=m===selMonth;
+        const isLatest=m===allMonths[allMonths.length-1];
+        return `<button class="month-btn${isActive?' active':''}${isLatest&&!isActive?' current':''}" onclick="selectMonth('${m}')">${label}</button>`;
+      }).join('');
+  }
 
   document.getElementById('rev-kpis').innerHTML=[
     {label:'MTD Revenue',value:fmtK(mtdRev),note:`${elapsedDays} of ${totalDays} days`,cls:'blue'},
@@ -592,6 +629,16 @@ async function loadTraffic(){
 function buildTraffic(rows){
   // Traffic page build — activates when SHEET_TRAFFIC is populated
   document.getElementById('traffic-content').innerHTML=`<div class="state-box"><h3>Traffic data loaded</h3><p>Add full traffic build here once GA4 Sheet is confirmed.</p></div>`;
+}
+
+window._selectedMonth=null;
+
+function selectMonth(m){
+  window._selectedMonth=m;
+  // Rebuild revenue page with same data but different month
+  if(window._lastRevRows&&window._lastBudRows){
+    buildRevenue(window._lastRevRows,window._lastBudRows);
+  }
 }
 
 /* INIT */
