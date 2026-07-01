@@ -323,8 +323,10 @@ function buildRev(){
   const pc=pace>=100?'green':pace>=90?'yellow':'red';
   const bc=pace>=100?'badge-green':pace>=90?'badge-yellow':'badge-red';
 
-  const d7d=allDates.filter(d=>d.startsWith(pfx)).slice(-7);
-  const d7p=allDates.filter(d=>d.startsWith(pfx)).slice(-14,-7);
+  // 7-day windows use ALL dates (not month-filtered) for accurate trends
+  const allDatesSorted=[...new Set(ALL.map(r=>r.Date))].sort();
+  const d7d=allDatesSorted.slice(-7);
+  const d7p=allDatesSorted.slice(-14,-7);
 
   // Partner aggregation
   const PM={};
@@ -339,7 +341,7 @@ function buildRev(){
     if(!PM[k])return;
     if(d7d.includes(r.Date))PM[k].d7+=pn(r.Revenue);
     if(d7p.includes(r.Date))PM[k].d7p+=pn(r.Revenue);
-    if(r.Date===maxD)PM[k].today+=pn(r.Revenue);
+    if(r.Date===maxD)PM[k].today+=pn(r.Revenue); // maxD is last date in selected month
   });
   const partners=Object.entries(PM).sort((a,b)=>b[1].rev-a[1].rev);
   const totRev=partners.reduce((s,[,v])=>s+v.rev,0);
@@ -450,7 +452,17 @@ function buildRev(){
   ].map(s=>`<li>${s}</li>`).join('');
 
   // Charts
-  Object.keys(CHARTS).filter(k=>k!=='drill').forEach(k=>{try{CHARTS[k].destroy();}catch(e){}delete CHARTS[k];});
+  // Destroy all non-drill charts before rebuild
+  Object.keys(CHARTS).forEach(k=>{
+    if(k==='drill')return;
+    try{CHARTS[k].destroy();}catch(e){}
+    delete CHARTS[k];
+  });
+  // Force canvas reset
+  ['cc','dc2','sc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){const p=el.parentNode;const n=el.cloneNode();p.replaceChild(n,el);}
+  });
 
   CHARTS.cum=new Chart(document.getElementById('cc'),{type:'line',data:{labels:selDates.map(dl),datasets:[
     {label:'Actual',data:cumD,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',fill:true,tension:.3,pointRadius:2,borderWidth:2},
