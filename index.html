@@ -228,7 +228,12 @@ function refreshAll(){loadRevenue();if(SHEET_TRAFFIC)loadTraffic();else buildTra
    DRILL-DOWN
 ══════════════════════════════════════════ */
 function openDrill(partnerName){
-  const rows=ALL_ROWS.filter(r=>(r.Category||r.Partner||'').replace('SMG_','')=== partnerName);
+  console.log('openDrill called with:', partnerName, 'ALL_ROWS length:', ALL_ROWS.length);
+  const rows=ALL_ROWS.filter(r=>{
+    const key=(r.Partner||r.Category||'').replace('SMG_','').trim();
+    return key===partnerName;
+  });
+  console.log('matched rows:', rows.length);
   if(!rows.length){return;}
 
   const allDates=[...new Set(rows.map(r=>r.Date))].sort();
@@ -385,13 +390,13 @@ function buildRevenue(allRows,rows2){
 
   const partnerMTD={};
   mtdRows.forEach(r=>{
-    const k=(r.Category||r.Partner||'Unknown').replace('SMG_','');
+    const k=(r.Partner||r.Category||'Unknown').replace('SMG_','').trim();
     if(!partnerMTD[k])partnerMTD[k]={rev:0,imp:0,source:r.Source,d7:0,d7prev:0,yRev:0};
     partnerMTD[k].rev+=parseNum(r.Revenue);
     partnerMTD[k].imp+=parseNum(r.Impressions);
   });
   allRows.forEach(r=>{
-    const k=(r.Category||r.Partner||'Unknown').replace('SMG_','');
+    const k=(r.Partner||r.Category||'Unknown').replace('SMG_','').trim();
     if(!partnerMTD[k])return;
     if(d7dates.includes(r.Date))partnerMTD[k].d7+=parseNum(r.Revenue);
     if(d7prev.includes(r.Date))partnerMTD[k].d7prev+=parseNum(r.Revenue);
@@ -517,7 +522,8 @@ function buildRevenue(allRows,rows2){
     const t=p.d7prev>0?(p.d7-p.d7prev)/p.d7prev*100:null;
     const ecpm=p.imp>0?p.rev/(p.imp/1000):0;
     const tcls=t===null?'trend-flat':t>5?'trend-up':t<-5?'trend-dn':'trend-flat';
-    return `<tr class="partner-row" onclick="openDrill('${name.replace(/'/g,"\\'")}')">
+    const safeName = encodeURIComponent(name);
+    return `<tr class="partner-row" style="cursor:pointer" onclick="openDrill(decodeURIComponent('${safeName}'))">
       <td>
         <div class="partner-name-cell">
           <div>
