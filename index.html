@@ -554,14 +554,17 @@ function buildRevenue(allRows,rows2){
     <div class="source-block"><div class="sv" style="color:#a855f7">${fmtK(mtdXandr)}</div><div class="sl">Xandr</div><div class="sp" style="color:#a855f7">${xandrPct}%</div></div>`;
   charts['rev_source']=new Chart(document.getElementById('rev-source'),{type:'doughnut',data:{labels:['GAM','Xandr'],datasets:[{data:[mtdGAM,mtdXandr],backgroundColor:['#3b82f6','#a855f7'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+fmtK(ctx.raw)}}}}});
 
+  // Store partner names globally for drill-down lookup
+  window._partnerNames = partners.map(([name])=>name);
+
   // PARTNER TABLE — clickable rows
-  document.getElementById('rev-partners').innerHTML=partners.map(([name,p])=>{
+  document.getElementById('rev-partners').innerHTML=partners.map(([name,p],_pi)=>{
     const share=totalMTDRev>0?p.rev/totalMTDRev*100:0;
     const d7avg=p.d7/Math.min(7,d7dates.length);
     const t=p.d7prev>0?(p.d7-p.d7prev)/p.d7prev*100:null;
     const ecpm=p.imp>0?p.rev/(p.imp/1000):0;
     const tcls=t===null?'trend-flat':t>5?'trend-up':t<-5?'trend-dn':'trend-flat';
-    return `<tr class="partner-row" style="cursor:pointer" onclick="openDrill(this.getAttribute('data-p'))" data-p="${name.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">
+    return `<tr class="partner-row" style="cursor:pointer" onclick="openDrill(window._partnerNames[${_pi}])">
       <td>
         <div class="partner-name-cell">
           <div>
