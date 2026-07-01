@@ -554,17 +554,19 @@ function buildRevenue(allRows,rows2){
     <div class="source-block"><div class="sv" style="color:#a855f7">${fmtK(mtdXandr)}</div><div class="sl">Xandr</div><div class="sp" style="color:#a855f7">${xandrPct}%</div></div>`;
   charts['rev_source']=new Chart(document.getElementById('rev-source'),{type:'doughnut',data:{labels:['GAM','Xandr'],datasets:[{data:[mtdGAM,mtdXandr],backgroundColor:['#3b82f6','#a855f7'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+fmtK(ctx.raw)}}}}});
 
-  // Store partner names globally for drill-down lookup
-  window._partnerNames = partners.map(([name])=>name);
-
-  // PARTNER TABLE — clickable rows
-  document.getElementById('rev-partners').innerHTML=partners.map(([name,p],_pi)=>{
-    const share=totalMTDRev>0?p.rev/totalMTDRev*100:0;
-    const d7avg=p.d7/Math.min(7,d7dates.length);
-    const t=p.d7prev>0?(p.d7-p.d7prev)/p.d7prev*100:null;
-    const ecpm=p.imp>0?p.rev/(p.imp/1000):0;
-    const tcls=t===null?'trend-flat':t>5?'trend-up':t<-5?'trend-dn':'trend-flat';
-    return `<tr class="partner-row" style="cursor:pointer" onclick="openDrill(window._partnerNames[${_pi}])">
+  // Build partner table with proper event listeners (no inline onclick)
+  const tbody = document.getElementById('rev-partners');
+  tbody.innerHTML = '';
+  partners.forEach(([name,p]) => {
+    const share  = totalMTDRev>0 ? p.rev/totalMTDRev*100 : 0;
+    const d7avg  = p.d7/Math.min(7,d7dates.length);
+    const t      = p.d7prev>0 ? (p.d7-p.d7prev)/p.d7prev*100 : null;
+    const ecpm   = p.imp>0 ? p.rev/(p.imp/1000) : 0;
+    const tcls   = t===null?'trend-flat':t>5?'trend-up':t<-5?'trend-dn':'trend-flat';
+    const tr = document.createElement('tr');
+    tr.className = 'partner-row';
+    tr.style.cursor = 'pointer';
+    tr.innerHTML = `
       <td>
         <div class="partner-name-cell">
           <div>
@@ -579,9 +581,10 @@ function buildRevenue(allRows,rows2){
       <td>${fmtK(p.yRev)}</td>
       <td>${fmtK(d7avg)}</td>
       <td class="${tcls}">${t===null?'—':fmtPct(t)}</td>
-      <td>${fmt(ecpm,2)}</td>
-    </tr>`;
-  }).join('');
+      <td>${fmt(ecpm,2)}</td>`;
+    tr.addEventListener('click', () => openDrill(name));
+    tbody.appendChild(tr);
+  });
 
   document.getElementById('rev-watch-count').textContent=watchlist.length;
   document.getElementById('rev-watchlist').innerHTML=watchlist.length?watchlist.map(w=>`<div class="watch-item"><div><div class="watch-name">${w.name}</div><div class="watch-detail">${w.detail}</div></div><span class="watch-tag tag-${w.tag}">${w.label}</span></div>`).join(''):`<div style="color:var(--muted);font-size:13px;padding:1rem 0;text-align:center">No alerts — all clear ✓</div>`;
