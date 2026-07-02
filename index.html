@@ -128,9 +128,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 </div>
 
 <nav class="nav">
-  <div class="nav-tab active" id="tab-rev" onclick="showPage('rev',this)"><span class="nav-dot" style="background:#3b82f6"></span>Revenue</div>
+  <div class="nav-tab active" id="tab-rev" onclick="showPage('rev',this)"><span class="nav-dot" style="background:#3b82f6"></span>Affiliate Rev, Non O&O</div>
   <div class="nav-tab" id="tab-tra" onclick="showPage('tra',this)"><span class="nav-dot" style="background:#14b8a6"></span>Traffic</div>
   <div class="nav-tab" id="tab-rg" onclick="showPage('rg',this)"><span class="nav-dot" style="background:#22c55e"></span>Revenue Goals</div>
+  <div class="nav-tab" id="tab-ds" onclick="showPage('ds',this)"><span class="nav-dot" style="background:#f59e0b"></span>Direct Sold</div>
   <div class="nav-tab" id="tab-pl" onclick="showPage('pl',this)"><span class="nav-dot" style="background:#a855f7"></span>P&L</div>
 </nav>
 
@@ -148,6 +149,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <!-- REVENUE GOALS PAGE -->
 <div class="page" id="page-rg">
   <div id="rg-main"></div>
+</div>
+
+<!-- DIRECT SOLD PAGE -->
+<div class="page" id="page-ds">
+  <div id="ds-main"></div>
 </div>
 
 <!-- P&L PAGE -->
@@ -895,10 +901,188 @@ function buildRG() {
   });
 }
 
-// Init traffic and P&L pages on tab click
+// Init traffic, revenue goals, direct sold and P&L pages on tab click
 document.getElementById('tab-tra').addEventListener('click', ()=>{ if(!document.getElementById('tra-main').innerHTML) buildTraffic(); });
 document.getElementById('tab-rg').addEventListener('click',  ()=>{ if(!document.getElementById('rg-main').innerHTML)   buildRG(); });
+document.getElementById('tab-ds').addEventListener('click',  ()=>{ if(!document.getElementById('ds-main').innerHTML)   buildDS(); });
 document.getElementById('tab-pl').addEventListener('click',  ()=>{ if(!document.getElementById('pl-main').innerHTML)   buildPL(); });
+
+// ── DIRECT SOLD DATA ──────────────────────────────────────────────────────────
+// Source: SMG Direct by campaign, Daily with salesperson report
+// Updated daily — data below is Jun 25–Jul 1 2026 seed data
+// Will be replaced by live Sheet CSV once OO_SHEET_CSV_URL is set
+
+const DS_BUDGET_JUL = 181224; // July Direct budget from RG data
+
+const DS_CAMPAIGNS = [
+  { order:'11439234_Eli Lilly-Corporate - Breast Cancer Oncology Fall 25', sp:'House/PSP', imps:46082, rev:552.50, ecpm:11.99 },
+  { order:'11667001_PSP_Bedford Stuyvesant Charter School', sp:'House/PSP', imps:2224, rev:8.90, ecpm:4.00 },
+  { order:'11670366_PSP_D.r. Horton Oct 25-Sept 26', sp:'House/PSP', imps:15523, rev:62.09, ecpm:4.00 },
+  { order:'11791273_PSP_Electrolux Oct 25', sp:'House/PSP', imps:19957, rev:79.83, ecpm:4.00 },
+  { order:'11854239_PSP_PIH Health (NBA)', sp:'House/PSP', imps:10313, rev:41.25, ecpm:4.00 },
+  { order:'11855658_PSP_Comcast Corporation Nov25', sp:'House/PSP', imps:21241, rev:84.96, ecpm:4.00 },
+  { order:'11888774_Elevance_Anthem 2026 Content Plan_Q2-Q4', sp:'Huezo, Will', imps:80359, rev:1254.11, ecpm:15.60 },
+  { order:'11935133_Toyota - 2026 Camry', sp:'House/PSP', imps:139682, rev:1989.07, ecpm:14.24 },
+  { order:'11943450_Zurich Insurance Group_2026', sp:'Craig, Jamie', imps:30215, rev:373.55, ecpm:12.36 },
+  { order:'11991398_Cragun Resort Digital', sp:'House/PSP', imps:6460, rev:114.99, ecpm:17.80 },
+  { order:'12028848_Jani King 2026', sp:'House/PSP', imps:195249, rev:2506.32, ecpm:12.84 },
+  { order:'12038138_Home Chef_Holiday + WC 2026', sp:'Peragine, Rob', imps:280, rev:3.08, ecpm:11.00 },
+  { order:'12061294_PGA Tour - 2026 Paid Campaign', sp:'House/PSP', imps:256602, rev:3145.57, ecpm:12.26 },
+  { order:'12068205_Ping Golf Clubs 1st half 2026', sp:'House/PSP', imps:454262, rev:5981.68, ecpm:13.17 },
+  { order:'12093193_Hims BC Weightloss', sp:'Felenstein, Steph', imps:10790, rev:77.97, ecpm:7.23 },
+  { order:'12108456_Siemens_FY26 Employer Branding', sp:'House/PSP', imps:54893, rev:580.14, ecpm:10.57 },
+  { order:'12122548_We-Ko-Pa Golf Club 2026', sp:'House/PSP', imps:25451, rev:254.51, ecpm:10.00 },
+  { order:'12122753_Big Cedar Lodge 26 digital', sp:'House/PSP', imps:22714, rev:295.28, ecpm:13.00 },
+  { order:'12123049_T-Mobile SMRA Q2 26 June', sp:'Felenstein, Steph', imps:93819, rev:1897.77, ecpm:20.23 },
+  { order:'12143996_Kohler Golf Digital 2026', sp:'House/PSP', imps:185616, rev:1795.23, ecpm:9.67 },
+  { order:'12145800_Schwab Golf 2026', sp:'Felenstein, Steph', imps:265929, rev:2834.23, ecpm:10.66 },
+  { order:'12152300_2026 Ocean City Golf Getaway Partnership', sp:'House/PSP', imps:3882, rev:27.17, ecpm:7.00 },
+  { order:'12152436_Sand Hollow Digital 2026', sp:'House/PSP', imps:49711, rev:671.75, ecpm:13.51 },
+  { order:'12159851_PFL_2026 Season', sp:'House/PSP', imps:1298634, rev:26180.68, ecpm:20.16 },
+  { order:'12166811_Dell_Q2_End Point Security BC', sp:'House/PSP', imps:2668, rev:23.86, ecpm:8.94 },
+  { order:'12174708_Tamarack Resort Digital 2026', sp:'House/PSP', imps:7832, rev:94.38, ecpm:12.05 },
+  { order:'12174792_T-Mobile Hometown Hubs 2026', sp:'Felenstein, Steph', imps:1641, rev:22.71, ecpm:13.84 },
+  { order:'12201046_Dollar General USA 250', sp:'House/PSP', imps:38519, rev:354.71, ecpm:9.21 },
+  { order:'12203966_PSP_ED911', sp:'House/PSP', imps:22018, rev:161.74, ecpm:7.35 },
+  { order:'12206777_ITA Italian Trade Agency', sp:'House/PSP', imps:6045, rev:48.96, ecpm:8.10 },
+  { order:'12217486_Fan Duel World Cup SBK', sp:'House/PSP', imps:20743, rev:223.23, ecpm:10.76 },
+  { order:'12218583_Omni Hotels & Resorts', sp:'House/PSP', imps:56326, rev:658.33, ecpm:11.69 },
+  { order:'12231590_Blue Star Families - Nourish the Service BC Q2 26', sp:'Madden, Michael', imps:24222, rev:289.20, ecpm:11.94 },
+  { order:'12242828_T-Mobile Hometown Hubs/ Fellowship Q3 2026', sp:'Felenstein, Steph', imps:4185, rev:57.92, ecpm:13.84 },
+  { order:'12248341_Credit One 2026', sp:'House/PSP', imps:98626, rev:1594.31, ecpm:16.17 },
+  { order:'12249529_PSP_KRIV (Fox)', sp:'House/PSP', imps:93989, rev:375.96, ecpm:4.00 },
+  { order:'12258824_Samsung Electronics - Branded Content Q2 26', sp:'House/PSP', imps:19819, rev:287.76, ecpm:14.52 },
+  { order:'12261938_RTJ Golf Trail x Golfweek 2026', sp:'Wynn, Dave', imps:61268, rev:949.86, ecpm:15.50 },
+  { order:'12292955_Pearl River Resort x Golfweek 2026', sp:'Wynn, Dave', imps:60191, rev:541.12, ecpm:8.99 },
+  { order:'12306738_PSP_Cordell & Cordell', sp:'House/PSP', imps:256185, rev:1024.74, ecpm:4.00 },
+  { order:'12314884_PSP_Fox SIO 940000454', sp:'House/PSP', imps:26465, rev:105.86, ecpm:4.00 },
+  { order:'12314928_PSP_Fox SIO 940000456', sp:'House/PSP', imps:121042, rev:484.17, ecpm:4.00 },
+  { order:'12317868_Elevance_Mental Health Awareness_May 2026', sp:'Huezo, Will', imps:29380, rev:493.65, ecpm:16.80 },
+  { order:'12325025_AutoZone_World Cup Hub', sp:'Peragine, Rob', imps:1251414, rev:12389.00, ecpm:9.90 },
+  { order:'12327585_Cutalong at Tributer Resort x Golfweek 2026', sp:'Wynn, Dave', imps:70976, rev:1064.64, ecpm:15.00 },
+  { order:'12330915_2026 Kaulig Companies Championship', sp:'House/PSP', imps:15215, rev:241.32, ecpm:15.86 },
+  { order:'12334288_State of Iowa_Branded Content + Custom Email', sp:'Craig, Jamie', imps:59678, rev:887.55, ecpm:14.87 },
+  { order:'12368894_PSP_Louisiana Dept of Agriculture', sp:'House/PSP', imps:19017, rev:76.07, ecpm:4.00 },
+  { order:'12383670_T-Mobile SMRA Q3 July 2026', sp:'Felenstein, Steph', imps:4412, rev:107.20, ecpm:24.30 },
+  { order:'12393317_PGA WEST 2026', sp:'House/PSP', imps:25927, rev:298.16, ecpm:11.50 },
+  { order:'12394056_Elevance_Anthem_Local_Site of Care_Q2-Q3', sp:'Huezo, Will', imps:189910, rev:3206.51, ecpm:16.88 },
+  { order:'12403404_Portugal DIGITAL 6.26-7.26.26', sp:'Goodwin, Justine', imps:12801, rev:52.74, ecpm:4.12 },
+  { order:'12409786_PSP_Hisense', sp:'House/PSP', imps:1872796, rev:7491.18, ecpm:4.00 },
+  { order:'12429122_Senders NFLMG Digital Display', sp:'Goodwin, Justine', imps:88454, rev:619.18, ecpm:7.00 },
+  { order:'12436500_PONANT 250 Campaign', sp:'House/PSP', imps:367, rev:1.48, ecpm:4.04 },
+  { order:'12370501_Columbia County Chamber of Commerce', sp:'Madden, Michael', imps:1249, rev:10.05, ecpm:8.05 },
+  { order:'12389956_Ollies Bargain Basement', sp:'House/PSP', imps:29, rev:0.41, ecpm:14.14 },
+  { order:'12398670_Grunt Style USA 250 Q2 June 2026', sp:'Hauptman, Rob', imps:100, rev:0.70, ecpm:7.00 },
+  { order:'12203773_The McLemore Club 2026', sp:'Wynn, Dave', imps:29476, rev:0.00, ecpm:0 },
+  { order:'12316597_CJ Group-CJ Cup 2026', sp:'House/PSP', imps:596, rev:7.75, ecpm:13.00 },
+];
+
+function buildDS() {
+  const fk = n => '$'+(n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toFixed(0));
+  const fd2 = n => '$'+n.toFixed(2);
+
+  // Aggregate by salesperson
+  const spMap = {};
+  DS_CAMPAIGNS.forEach(c => {
+    const sp = c.sp;
+    if (!spMap[sp]) spMap[sp] = { rev:0, imps:0, campaigns:0 };
+    spMap[sp].rev += c.rev;
+    spMap[sp].imps += c.imps;
+    spMap[sp].campaigns++;
+  });
+
+  const totalRev = DS_CAMPAIGNS.reduce((s,c)=>s+c.rev,0);
+  const totalImps = DS_CAMPAIGNS.reduce((s,c)=>s+c.imps,0);
+  const houseRev = (spMap['House/PSP']||{rev:0}).rev;
+  const soldRev = totalRev - houseRev;
+
+  // Sort campaigns by revenue desc
+  const sorted = [...DS_CAMPAIGNS].sort((a,b)=>b.rev-a.rev);
+
+  // Salesperson rows (excluding House/PSP)
+  const spSorted = Object.entries(spMap)
+    .filter(([sp])=>sp!=='House/PSP')
+    .sort((a,b)=>b[1].rev-a[1].rev);
+
+  const spColors = ['#3b82f6','#a855f7','#14b8a6','#f59e0b','#ef4444','#22c55e','#f97316'];
+
+  document.getElementById('ds-main').innerHTML = `
+    <div style="margin-bottom:.5rem;font-size:11px;color:var(--muted)">Source: SMG Direct by campaign, Daily with salesperson · Jun 25–Jul 1, 2026 · Updates daily</div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.25rem">
+      <div class="kpi blue"><div class="kpi-label">Total Direct MTD</div><div class="kpi-value">${fk(totalRev)}</div><div class="kpi-note">${(totalImps/1e6).toFixed(1)}M impressions</div></div>
+      <div class="kpi yellow"><div class="kpi-label">Sold Revenue</div><div class="kpi-value">${fk(soldRev)}</div><div class="kpi-note">Excluding House/PSP</div></div>
+      <div class="kpi purple"><div class="kpi-label">House / PSP</div><div class="kpi-value">${fk(houseRev)}</div><div class="kpi-note">${(houseRev/totalRev*100).toFixed(0)}% of total</div></div>
+      <div class="kpi ${soldRev>=(DS_BUDGET_JUL*0.9)?'green':'red'}"><div class="kpi-label">Jul Budget</div><div class="kpi-value">${fk(DS_BUDGET_JUL)}</div><div class="kpi-note">Direct/Premium goal</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">By Salesperson</div>
+        <div style="overflow-x:auto"><table class="data-table">
+          <thead><tr><th>Salesperson</th><th>Revenue</th><th>Impressions</th><th>Campaigns</th><th>eCPM</th></tr></thead>
+          <tbody>
+            ${spSorted.map(([sp,d],i)=>{
+              const ecpm = d.imps>0?d.rev/(d.imps/1000):0;
+              return `<tr>
+                <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${spColors[i]||'#666'};margin-right:6px"></span><strong>${sp}</strong></td>
+                <td><strong>${fk(d.rev)}</strong></td>
+                <td style="color:var(--muted)">${(d.imps/1000).toFixed(0)}K</td>
+                <td style="color:var(--muted)">${d.campaigns}</td>
+                <td>${fd2(ecpm)}</td>
+              </tr>`;
+            }).join('')}
+            <tr style="border-top:1px solid rgba(255,255,255,.08)">
+              <td style="color:var(--muted)">House/PSP</td>
+              <td>${fk(houseRev)}</td>
+              <td style="color:var(--muted)">${((spMap['House/PSP']||{imps:0}).imps/1e6).toFixed(1)}M</td>
+              <td style="color:var(--muted)">${(spMap['House/PSP']||{campaigns:0}).campaigns}</td>
+              <td style="color:var(--muted)">—</td>
+            </tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Revenue by salesperson</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="ds-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="card full" style="margin-top:0">
+      <div class="card-title">All campaigns — sorted by revenue</div>
+      <div style="overflow-x:auto"><table class="data-table">
+        <thead><tr><th>Campaign</th><th>Salesperson</th><th>Revenue</th><th>Impressions</th><th>eCPM</th></tr></thead>
+        <tbody>
+          ${sorted.filter(c=>c.rev>0).map(c=>`<tr>
+            <td style="font-size:11px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><strong>${c.order.replace(/^\d+_/,'')}</strong></td>
+            <td style="font-size:11px;color:var(--muted);white-space:nowrap">${c.sp}</td>
+            <td>${fk(c.rev)}</td>
+            <td style="color:var(--muted);font-size:11px">${(c.imps/1000).toFixed(0)}K</td>
+            <td style="font-size:11px">${fd2(c.ecpm)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+
+  // Salesperson bar chart
+  const spLabels = [...spSorted.map(([sp])=>sp.split(',')[0]), 'House/PSP'];
+  const spRevs   = [...spSorted.map(([,d])=>d.rev), houseRev];
+  const spBgColors = [...spColors.slice(0, spSorted.length), 'rgba(255,255,255,.15)'];
+
+  new Chart(document.getElementById('ds-chart'), {
+    type:'bar',
+    data:{
+      labels: spLabels,
+      datasets:[{ label:'Revenue', data:spRevs, backgroundColor:spBgColors, borderRadius:4 }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fk(c.raw)}}},
+      scales:{
+        x:{ticks:{color:'#8b8fa8',callback:v=>fk(v)},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#8b8fa8',font:{size:10}},grid:{display:false}}
+      }
+    }
+  });
+}
 </script>
 </body>
 </html>
