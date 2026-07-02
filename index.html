@@ -385,156 +385,169 @@ function buildSnap() {
   const elapsed = parseInt(allDates.filter(d=>d.startsWith(latestMonth)).slice(-1)[0].split('-')[2]);
   const remaining = totDays - elapsed;
 
-  // Affiliate Rev (live from Sheet)
-  const mtd = ALL.filter(r=>r.Date.startsWith(latestMonth));
-  const affRev = mtd.reduce((s,r)=>s+pn(r.Revenue),0);
-  const avgD = elapsed>0 ? affRev/elapsed : 0;
-  const affFore = avgD * totDays;
-
-  // Budget for current month
-  const budRow = rows2.find(r=>r.Month&&r.Month.startsWith(latestMonth));
-  const affBud = budRow ? pn(budRow.Budget) : 0;
-  const affPace = affBud>0 ? affFore/affBud*100 : 0;
-
-  // 7-day trend
-  const d7 = allDates.slice(-7);
-  const d7p = allDates.slice(-14,-7);
-  const r7 = ALL.filter(r=>d7.includes(r.Date)).reduce((s,r)=>s+pn(r.Revenue),0);
-  const r7p = ALL.filter(r=>d7p.includes(r.Date)).reduce((s,r)=>s+pn(r.Revenue),0);
-  const trend7 = r7p>0 ? (r7-r7p)/r7p*100 : 0;
-
-  // OO Revenue — latest actuals from RG data (May)
+  // OO Revenue — latest monthly actuals
   const latestRGIdx = REV_GOALS.actuals_2026.reduce((li,v,i)=>v!=null?i:li,-1);
   const latestRGMonth = REV_GOALS.months[latestRGIdx];
   const ooTotalAct = REV_GOALS.actuals_2026[latestRGIdx]||0;
   const ooTotalBud = REV_GOALS.budget_2026[latestRGIdx]||0;
   const ooVsBud = ooTotalBud>0?(ooTotalAct/ooTotalBud-1)*100:0;
+  const ooLY = REV_GOALS.actuals_2025[latestRGIdx]||0;
+  const ooVsLY = ooLY>0?(ooTotalAct/ooLY-1)*100:0;
 
-  // Direct sold (from DS data)
+  // Programmatic from RG data
+  const progGroup = RG.groups.find(g=>g.name==='Programmatic');
+  const progAct = progGroup?progGroup.act[latestRGIdx]:null;
+  const progBud = progGroup?progGroup.bud[latestRGIdx]:null;
+  const progVsBud = progAct&&progBud?(progAct/progBud-1)*100:null;
+
+  // Direct sold
   const dsTotalRev = DS_CAMPAIGNS.reduce((s,c)=>s+c.rev,0);
   const dsSoldRev = DS_CAMPAIGNS.filter(c=>c.sp!=='House/PSP').reduce((s,c)=>s+c.rev,0);
+  const dsColor = dsTotalRev>=DS_BUDGET_JUL*0.5?'green':'yellow';
 
-  // Traffic — latest month
+  // Traffic
   const latestTrafIdx = TRAFFIC.totals.length-1;
   const latestTrafPV = TRAFFIC.totals[latestTrafIdx];
   const prevTrafPV = TRAFFIC.totals[latestTrafIdx-1]||0;
   const trafMoM = prevTrafPV>0?(latestTrafPV/prevTrafPV-1)*100:0;
+  const ytdPV = TRAFFIC.totals.reduce((a,b)=>a+b,0);
 
-  // Status helpers
+  // Affiliate (secondary — live data)
+  const mtd = ALL.filter(r=>r.Date.startsWith(latestMonth));
+  const affRev = mtd.reduce((s,r)=>s+pn(r.Revenue),0);
+  const avgD = elapsed>0?affRev/elapsed:0;
+  const affFore = avgD*totDays;
+  const budRow = rows2.find(r=>r.Month&&r.Month.startsWith(latestMonth));
+  const affBud = budRow?pn(budRow.Budget):0;
+  const affPace = affBud>0?affFore/affBud*100:0;
+  const d7 = allDates.slice(-7);
+  const d7p = allDates.slice(-14,-7);
+  const r7 = ALL.filter(r=>d7.includes(r.Date)).reduce((s,r)=>s+pn(r.Revenue),0);
+  const r7p = ALL.filter(r=>d7p.includes(r.Date)).reduce((s,r)=>s+pn(r.Revenue),0);
+  const trend7 = r7p>0?(r7-r7p)/r7p*100:0;
+
+  // Helpers
   const sc = (v,good,warn) => v>=good?'green':v>=warn?'yellow':'red';
-  const sa = (v,good,warn) => v>=good?'▲':v>=warn?'▶':'▼';
-
-  // Generate insights
-  const insights = [];
-  if(affPace>=100) insights.push({cls:'good', txt:`Affiliate Non-O&O pacing at <strong>${affPace.toFixed(1)}%</strong> of budget — on track for <strong>${fk(affFore)}</strong> month-end.`});
-  else if(affPace>=90) insights.push({cls:'warn', txt:`Affiliate Non-O&O at <strong>${affPace.toFixed(1)}%</strong> pace — needs <strong>${fk((affBud-affRev)/remaining)}/day</strong> over ${remaining} days to hit budget.`});
-  else insights.push({cls:'alert', txt:`Affiliate Non-O&O below pace at <strong>${affPace.toFixed(1)}%</strong> — currently forecasting <strong>${fk(affFore)}</strong> vs <strong>${fk(affBud)}</strong> budget.`});
-
-  if(trend7>=5) insights.push({cls:'good', txt:`7-day affiliate revenue trending <strong>up ${trend7.toFixed(1)}%</strong> vs prior 7 days — momentum building.`});
-  else if(trend7<=-10) insights.push({cls:'alert', txt:`7-day affiliate revenue down <strong>${Math.abs(trend7).toFixed(1)}%</strong> vs prior week — monitor for partner issues.`});
-
-  if(ooVsBud>=0) insights.push({cls:'good', txt:`Total OO revenue (${latestRGMonth}) was <strong>${fk(ooTotalAct)}</strong> — <strong>+${ooVsBud.toFixed(1)}%</strong> vs budget.`});
-  else insights.push({cls:'warn', txt:`Total OO revenue (${latestRGMonth}) was <strong>${fk(ooTotalAct)}</strong> — <strong>${ooVsBud.toFixed(1)}%</strong> vs budget of ${fk(ooTotalBud)}.`});
-
-  if(trafMoM<=-10) insights.push({cls:'alert', txt:`Traffic down <strong>${Math.abs(trafMoM).toFixed(1)}%</strong> MoM (${TRAFFIC.months[latestTrafIdx-1]} → ${TRAFFIC.months[latestTrafIdx]}) — potential revenue headwind.`});
-  else if(trafMoM>=5) insights.push({cls:'good', txt:`Traffic up <strong>${trafMoM.toFixed(1)}%</strong> MoM — positive signal for programmatic revenue.`});
-
-  const affColor = sc(affPace,100,90);
   const ooColor = sc(ooVsBud,0,-10);
-  const trafColor = sc(trafMoM,5,-10);
+  const trafColor = sc(trafMoM,0,-10);
+  const progColor = progVsBud!==null?sc(progVsBud,0,-10):'muted';
+
+  // Insights — OO-first priority
+  const insights = [];
+  if(ooVsBud>=0) insights.push({cls:'good', txt:`Total OO revenue in ${latestRGMonth} was <strong>${fk(ooTotalAct)}</strong> — <strong>+${ooVsBud.toFixed(1)}%</strong> vs budget and <strong>${ooVsLY>=0?'+':''}${ooVsLY.toFixed(1)}%</strong> vs last year.`});
+  else insights.push({cls:'alert', txt:`Total OO revenue in ${latestRGMonth} was <strong>${fk(ooTotalAct)}</strong> — <strong>${ooVsBud.toFixed(1)}%</strong> vs budget of ${fk(ooTotalBud)}.`});
+
+  if(progVsBud!==null) {
+    if(progVsBud>=0) insights.push({cls:'good', txt:`Programmatic revenue was <strong>${fk(progAct)}</strong> in ${latestRGMonth} — <strong>+${progVsBud.toFixed(1)}%</strong> vs budget.`});
+    else insights.push({cls:'warn', txt:`Programmatic came in at <strong>${fk(progAct)}</strong> in ${latestRGMonth} — <strong>${progVsBud.toFixed(1)}%</strong> vs budget of ${fk(progBud)}.`});
+  }
+
+  if(trafMoM<=-10) insights.push({cls:'alert', txt:`Traffic down <strong>${Math.abs(trafMoM).toFixed(1)}%</strong> MoM — headwind for programmatic yield.`});
+  else if(trafMoM>=5) insights.push({cls:'good', txt:`Traffic up <strong>${trafMoM.toFixed(1)}%</strong> MoM to ${(latestTrafPV/1e6).toFixed(1)}M PVs — tailwind for programmatic.`});
+  else insights.push({cls:'', txt:`Traffic relatively flat MoM at <strong>${(latestTrafPV/1e6).toFixed(1)}M</strong> page views.`});
+
+  if(affPace>=100) insights.push({cls:'good', txt:`Affiliate Non-O&O pacing at <strong>${affPace.toFixed(1)}%</strong> of budget — on track for ${fk(affFore)}.`});
+  else insights.push({cls:'warn', txt:`Affiliate Non-O&O forecasting <strong>${fk(affFore)}</strong> vs <strong>${fk(affBud)}</strong> budget — needs ${fk((affBud-affRev)/Math.max(remaining,1))}/day.`});
 
   document.getElementById('snap-main').innerHTML = `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:1rem">
-      Last updated: ${new Date().toLocaleString()} · Affiliate data through ${allDates[allDates.length-1]} · OO actuals through ${latestRGMonth} 2026
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1.25rem">
+      OO actuals through <strong style="color:var(--text)">${latestRGMonth} 2026</strong> · Affiliate live through <strong style="color:var(--text)">${allDates[allDates.length-1]}</strong> · Updated ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
     </div>
 
-    <div class="snap-grid">
-      <div class="snap-card ${affColor}">
-        <div class="snap-label">Affiliate Rev — MTD</div>
-        <div class="snap-value">${fk(affRev)}</div>
-        <div class="snap-sub">${elapsed} of ${totDays} days · ${fk(avgD)}/day avg</div>
-        <span class="snap-badge badge-${affColor}">${sa(affPace,100,90)} ${affPace.toFixed(1)}% of budget</span>
-      </div>
-      <div class="snap-card ${affColor}">
-        <div class="snap-label">Affiliate Month-End Forecast</div>
-        <div class="snap-value">${fk(affFore)}</div>
-        <div class="snap-sub">Budget: ${fk(affBud)} · Need ${fk((affBud-affRev)/Math.max(remaining,1))}/day</div>
-        <span class="snap-badge badge-${affColor}">${fk(affFore-affBud)} vs budget</span>
-      </div>
+    <!-- PRIMARY KPIs: OO Total, Programmatic, Direct, Traffic -->
+    <div class="snap-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-bottom:1.25rem">
       <div class="snap-card ${ooColor}">
-        <div class="snap-label">Total OO Revenue — ${latestRGMonth}</div>
+        <div class="snap-label">Total O&O Revenue — ${latestRGMonth}</div>
         <div class="snap-value">${fk(ooTotalAct)}</div>
-        <div class="snap-sub">Budget: ${fk(ooTotalBud)}</div>
+        <div class="snap-sub">Budget: ${fk(ooTotalBud)} · LY: ${ooLY?fk(ooLY):'—'}</div>
         <span class="snap-badge badge-${ooColor}">${ooVsBud>=0?'+':''}${ooVsBud.toFixed(1)}% vs budget</span>
+        ${ooLY?`<span class="snap-badge" style="margin-left:4px;background:rgba(255,255,255,.07);color:var(--muted)">${ooVsLY>=0?'+':''}${ooVsLY.toFixed(1)}% vs LY</span>`:''}
       </div>
-      <div class="snap-card blue">
+      <div class="snap-card ${progColor}">
+        <div class="snap-label">Programmatic — ${latestRGMonth}</div>
+        <div class="snap-value">${progAct!=null?fk(progAct):'—'}</div>
+        <div class="snap-sub">Budget: ${progBud?fk(progBud):'—'} · Daily tracking starts Jul 3</div>
+        ${progVsBud!==null?`<span class="snap-badge badge-${progColor}">${progVsBud>=0?'+':''}${progVsBud.toFixed(1)}% vs budget</span>`:'<span class="snap-badge" style="background:rgba(255,255,255,.07);color:var(--muted)">Monthly data only</span>'}
+      </div>
+      <div class="snap-card ${dsColor}">
         <div class="snap-label">Direct Sold — MTD</div>
         <div class="snap-value">${fk(dsTotalRev)}</div>
         <div class="snap-sub">Sold: ${fk(dsSoldRev)} · House/PSP: ${fk(dsTotalRev-dsSoldRev)}</div>
-        <span class="snap-badge" style="background:rgba(59,130,246,.15);color:var(--blue)">Jun 25–Jul 1</span>
+        <span class="snap-badge" style="background:rgba(245,158,11,.15);color:var(--yellow)">Jul budget: ${fk(DS_BUDGET_JUL)}</span>
       </div>
       <div class="snap-card ${trafColor}">
         <div class="snap-label">Traffic — ${TRAFFIC.months[latestTrafIdx]} Page Views</div>
         <div class="snap-value">${(latestTrafPV/1e6).toFixed(1)}M</div>
-        <div class="snap-sub">Prior month: ${(prevTrafPV/1e6).toFixed(1)}M</div>
+        <div class="snap-sub">Prior month: ${(prevTrafPV/1e6).toFixed(1)}M · YTD: ${(ytdPV/1e6).toFixed(0)}M</div>
         <span class="snap-badge badge-${trafColor}">${trafMoM>=0?'+':''}${trafMoM.toFixed(1)}% MoM</span>
-      </div>
-      <div class="snap-card ${trend7>=0?'green':'red'}">
-        <div class="snap-label">Affiliate 7-Day Trend</div>
-        <div class="snap-value">${fk(r7/7)}<span style="font-size:14px;color:var(--muted)">/day</span></div>
-        <div class="snap-sub">vs ${fk(r7p/7)}/day prior week</div>
-        <span class="snap-badge badge-${trend7>=0?'green':'red'}">${trend7>=0?'+':''}${trend7.toFixed(1)}% WoW</span>
       </div>
     </div>
 
-    <div class="snap-divider">Business Status</div>
     <div class="two-col">
-      <div>
+      <!-- STATUS PANEL -->
+      <div class="card">
+        <div class="card-title">Business Status</div>
         ${[
-          { lbl:'Affiliate Non-O&O Pacing', val: affPace.toFixed(1)+'%', sub: fk(affRev)+' of '+fk(affBud)+' budget', color: affColor },
-          { lbl:'OO Total Revenue ('+latestRGMonth+')', val: (ooVsBud>=0?'+':'')+ooVsBud.toFixed(1)+'%', sub: fk(ooTotalAct)+' vs '+fk(ooTotalBud)+' budget', color: ooColor },
-          { lbl:'Direct Sold MTD', val: fk(dsTotalRev), sub: 'Jul budget: '+fk(DS_BUDGET_JUL), color: dsTotalRev>=DS_BUDGET_JUL*0.5?'green':'yellow' },
-          { lbl:'Traffic MoM', val: (trafMoM>=0?'+':'')+trafMoM.toFixed(1)+'%', sub: (latestTrafPV/1e6).toFixed(1)+'M PVs — '+TRAFFIC.months[latestTrafIdx], color: trafColor },
-          { lbl:'7-Day Rev Trend', val: (trend7>=0?'+':'')+trend7.toFixed(1)+'%', sub: fk(r7/7)+'/day avg this week', color: trend7>=0?'green':'red' },
-        ].map(s=>`<div class="snap-status">
+          { lbl:'Total O&O Revenue ('+latestRGMonth+')', val:(ooVsBud>=0?'+':'')+ooVsBud.toFixed(1)+'% vs bud', sub:fk(ooTotalAct)+' actual', color:ooColor },
+          { lbl:'Programmatic ('+latestRGMonth+')', val:progVsBud!==null?(progVsBud>=0?'+':'')+progVsBud.toFixed(1)+'% vs bud':'Monthly only', sub:progAct!=null?fk(progAct)+' actual':'Daily tracking Jul 3', color:progColor },
+          { lbl:'Direct Sold MTD', val:fk(dsTotalRev), sub:'Jul budget: '+fk(DS_BUDGET_JUL), color:dsColor },
+          { lbl:'Traffic MoM ('+TRAFFIC.months[latestTrafIdx]+')', val:(trafMoM>=0?'+':'')+trafMoM.toFixed(1)+'%', sub:(latestTrafPV/1e6).toFixed(1)+'M page views', color:trafColor },
+          { lbl:'Affiliate Non-O&O Pace', val:affPace.toFixed(1)+'% of bud', sub:fk(affRev)+' MTD · '+fk(affFore)+' forecast', color:sc(affPace,100,90), secondary:true },
+        ].map(s=>`<div class="snap-status" style="${s.secondary?'opacity:.7':''}">
           <div class="snap-dot" style="background:var(--${s.color})"></div>
-          <div style="flex:1"><div class="snap-status-label">${s.lbl}</div><div class="snap-status-sub">${s.sub}</div></div>
+          <div style="flex:1"><div class="snap-status-label">${s.lbl}${s.secondary?' <span style="font-size:9px;color:var(--muted)">(secondary)</span>':''}</div><div class="snap-status-sub">${s.sub}</div></div>
           <div class="snap-status-val" style="color:var(--${s.color})">${s.val}</div>
         </div>`).join('')}
       </div>
-      <div>
-        <div class="snap-divider" style="margin-top:0">Key Insights</div>
+      <!-- INSIGHTS -->
+      <div class="card">
+        <div class="card-title">Key Insights</div>
         ${insights.map(i=>`<div class="snap-insight ${i.cls}">${i.txt}</div>`).join('')}
-        <div style="font-size:10px;color:var(--muted);margin-top:1rem">
-          OO daily tracking (Programmatic, Direct, Local) begins Jul 3 · Affiliate data updates hourly
+        <div style="font-size:10px;color:var(--muted);margin-top:1rem;line-height:1.6">
+          OO daily tracking (Programmatic, Direct, Local) begins Jul 3<br>
+          Affiliate Non-O&O data updates hourly via GAM + Xandr
         </div>
       </div>
     </div>
 
-    <div class="snap-divider">OO Revenue by Category — ${latestRGMonth} 2026</div>
+    <!-- OO CATEGORY BREAKDOWN -->
+    <div class="snap-divider">O&O Revenue by Category — ${latestRGMonth} 2026</div>
     <div style="overflow-x:auto"><table class="data-table">
-      <thead><tr><th>Category</th><th>Actual</th><th>Budget</th><th>vs Budget</th><th>Next Mo Budget</th></tr></thead>
+      <thead><tr><th>Category</th><th>Actual</th><th>Budget</th><th>vs Budget</th><th>LY Actual</th><th>Next Mo Budget</th></tr></thead>
       <tbody>${RG.groups.map(g=>{
         const act=g.act[latestRGIdx], bud=g.bud[latestRGIdx], nxt=g.bud[latestRGIdx+1]||null;
         const vb=act&&bud?(act/bud-1)*100:null;
         const cb=vb===null?'':vb>=0?'hi-green':'hi-red';
         return `<tr>
           <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.color};margin-right:6px"></span><strong>${g.name}</strong></td>
-          <td>${act!=null?fk(act):'—'}</td>
+          <td><strong>${act!=null?fk(act):'—'}</strong></td>
           <td style="color:var(--muted)">${bud?fk(bud):'—'}</td>
           <td class="${cb}">${vb!==null?(vb>=0?'+':'')+vb.toFixed(1)+'%':'—'}</td>
+          <td style="color:var(--muted)">—</td>
           <td style="color:var(--muted);font-size:11px">${nxt?fk(nxt):'—'}</td>
         </tr>`;
       }).join('')}
       <tr style="border-top:1px solid rgba(255,255,255,.12);font-weight:600">
-        <td>Total OO</td>
+        <td>Total O&O</td>
         <td>${fk(ooTotalAct)}</td>
         <td style="color:var(--muted)">${fk(ooTotalBud)}</td>
         <td class="${ooVsBud>=0?'hi-green':'hi-red'}">${ooVsBud>=0?'+':''}${ooVsBud.toFixed(1)}%</td>
+        <td style="color:var(--muted)">${ooLY?fk(ooLY):'—'}</td>
         <td style="color:var(--muted)">${fk(RG.groups.reduce((s,g)=>s+(g.bud[latestRGIdx+1]||0),0))}</td>
       </tr>
       </tbody>
     </table></div>
+
+    <!-- AFFILIATE SECONDARY SECTION -->
+    <div class="snap-divider">Affiliate Non-O&O — Live Pacing <span style="font-weight:400;color:var(--muted);font-size:10px">GAM + Xandr · updates hourly</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem">
+      ${[
+        {l:'MTD Revenue', v:fk(affRev), n:elapsed+' of '+totDays+' days', c:sc(affPace,100,90)},
+        {l:'Daily Run Rate', v:fk(avgD)+'/day', n:'7-day: '+fk(r7/7)+'/day', c:trend7>=0?'green':'yellow'},
+        {l:'Month-End Forecast', v:fk(affFore), n:'vs '+fk(affBud)+' budget', c:sc(affPace,100,90)},
+        {l:'7-Day Trend', v:(trend7>=0?'+':'')+trend7.toFixed(1)+'%', n:'vs prior week', c:trend7>=5?'green':trend7<=-10?'red':'yellow'},
+      ].map(k=>`<div class="kpi ${k.c}"><div class="kpi-label">${k.l}</div><div class="kpi-value" style="font-size:18px">${k.v}</div><div class="kpi-note">${k.n}</div></div>`).join('')}
+    </div>
   `;
 }
 
