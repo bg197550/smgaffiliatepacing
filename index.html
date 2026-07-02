@@ -130,6 +130,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <nav class="nav">
   <div class="nav-tab active" id="tab-rev" onclick="showPage('rev',this)"><span class="nav-dot" style="background:#3b82f6"></span>Revenue</div>
   <div class="nav-tab" id="tab-tra" onclick="showPage('tra',this)"><span class="nav-dot" style="background:#14b8a6"></span>Traffic</div>
+  <div class="nav-tab" id="tab-pl" onclick="showPage('pl',this)"><span class="nav-dot" style="background:#a855f7"></span>P&L / Goals</div>
 </nav>
 
 <!-- REVENUE PAGE -->
@@ -140,7 +141,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 <!-- TRAFFIC PAGE -->
 <div class="page" id="page-tra">
-  <div class="state-box"><h3>📡 Traffic</h3><p style="margin-top:8px;font-size:13px">Connect your GA4 Sheet CSV URL to activate this page.</p></div>
+  <div id="tra-main"></div>
+</div>
+
+<!-- P&L / GOALS PAGE -->
+<div class="page" id="page-pl">
+  <div id="pl-main"></div>
 </div>
 
 <!-- DRILL OVERLAY -->
@@ -514,6 +520,182 @@ function buildRev(){
 }
 
 init();
+
+// ── TRAFFIC DATA (Jan–May 2026) ─────────────────────────────────
+const TRAFFIC = {
+  months: ['Jan','Feb','Mar','Apr','May'],
+  properties: [
+    { name:'NFL Wires',        pv:[28721252,16767788,22273929,18417616,15288778] },
+    { name:'College Wires',    pv:[12530642,8343029,8710673,9044522,8395514] },
+    { name:'For The Win',      pv:[6147938,6253354,5386244,4168840,2732375] },
+    { name:'Golfweek',         pv:[2301796,3009422,3407333,4444189,3576050] },
+    { name:'NBA Wires',        pv:[1267548,1616998,1246006,1489394,1743953] },
+    { name:'MMA Junkie',       pv:[3367490,3184440,3878402,3533345,4877904] },
+    { name:'HoopsHype',        pv:[6440173,7117451,4211757,3762988,4833019] },
+    { name:'SportsbookWire',   pv:[2629084,1764280,2231973,1525232,1157328] },
+    { name:'ProSoccerWire',    pv:[39145,39558,21485,57862,112052] },
+    { name:'Huddle',           pv:[118384,56737,43321,41273,42741] },
+  ],
+  totals:   [63563452,48153057,51411123,46485261,42759714],
+  video:    [32506202,27035043,25761868,25674508,21543906],
+  users:    [23090845,20697012,17834080,16500342,16282522],
+};
+
+// ── REVENUE GOALS DATA ─────────────────────────────────────────
+const REV_GOALS = {
+  months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'],
+  actuals_2026: [1795371,1309233,1484815,1299597,1289101,null,null,null,null,null,null],
+  actuals_2025: [1258097,1049053,1388935,1387937,1209866,1307807,1198658,1477909,1753686,1890824,2066455],
+  budget_2026:  [1395498,1224379,1496503,1510736,1338348,1450403,1324650,1616686,1833999,1922454,1892472],
+};
+
+// ── P&L DATA (Jan–May 2026, $000s) ────────────────────────────
+const PL_DATA = {
+  months: ['Jan','Feb','Mar','Apr','May'],
+  smg_revenue:  [3119,2727,1727,1392,1637],
+  smg_expense:  [2837,1884,1934,1385,1564],
+  smg_ebitda:   [572,660,null,null,null], // placeholder partial
+  affiliate_rev:[1447,1705,1431,894,1080],
+  affiliate_ebitda:[290,323,216,73,413],
+  affiliate_margin:['20%','19%','22%','24%','19%'],
+  core_ebitda:  [-843,-853,-693,-149,-805],
+};
+
+// ── TRAFFIC PAGE ───────────────────────────────────────────────
+function buildTraffic() {
+  const fM = n => (n/1e6).toFixed(2)+'M';
+  const fK = n => n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':n;
+  const months = TRAFFIC.months;
+  const totals = TRAFFIC.totals;
+  const latest = totals[totals.length-1];
+  const prev   = totals[totals.length-2];
+  const mom    = ((latest/prev-1)*100).toFixed(1);
+  const ytdPV  = totals.reduce((a,b)=>a+b,0);
+  const ytdVV  = TRAFFIC.video.reduce((a,b)=>a+b,0);
+
+  const colors = ['#3b82f6','#a855f7','#14b8a6','#f59e0b','#ef4444','#22c55e','#f97316','#06b6d4','#ec4899','#84cc16'];
+
+  document.getElementById('tra-main').innerHTML = `
+    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.25rem">
+      <div class="kpi blue"><div class="kpi-label">May Page Views</div><div class="kpi-value">${fM(latest)}</div><div class="kpi-note">${mom>0?'▲':'▼'} ${Math.abs(mom)}% vs Apr</div></div>
+      <div class="kpi purple"><div class="kpi-label">YTD Page Views</div><div class="kpi-value">${fM(ytdPV)}</div><div class="kpi-note">Jan–May 2026</div></div>
+      <div class="kpi teal"><div class="kpi-label">May Video Views</div><div class="kpi-value">${fM(TRAFFIC.video[4])}</div><div class="kpi-note">${((TRAFFIC.video[4]/TRAFFIC.video[3]-1)*100).toFixed(1)}% vs Apr</div></div>
+      <div class="kpi yellow"><div class="kpi-label">May Users (GA)</div><div class="kpi-value">${fM(TRAFFIC.users[4])}</div><div class="kpi-note">Unique users</div></div>
+      <div class="kpi green"><div class="kpi-label">YTD Video Views</div><div class="kpi-value">${fM(ytdVV)}</div><div class="kpi-note">Jan–May 2026</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Monthly Page Views — All Properties</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="tra-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">May Traffic — Property Breakdown</div>
+        <div style="overflow-x:auto"><table class="data-table">
+          <thead><tr><th>Property</th><th>May PVs</th><th>Apr PVs</th><th>MoM</th><th>YTD</th></tr></thead>
+          <tbody>${TRAFFIC.properties.map((p,i)=>{
+            const may=p.pv[4], apr=p.pv[3], mom=((may/apr-1)*100).toFixed(1);
+            const ytd=p.pv.reduce((a,b)=>a+b,0);
+            const cls=mom>0?'hi-green':'hi-red';
+            return `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[i]};margin-right:6px"></span><strong>${p.name}</strong></td><td>${fK(may)}</td><td style="color:var(--muted)">${fK(apr)}</td><td class="${cls}">${mom>0?'+':''}${mom}%</td><td style="color:var(--muted)">${fK(ytd)}</td></tr>`;
+          }).join('')}
+          <tr style="border-top:1px solid rgba(255,255,255,.08);font-weight:600"><td>Total</td><td>${fK(TRAFFIC.totals[4])}</td><td style="color:var(--muted)">${fK(TRAFFIC.totals[3])}</td><td class="${((TRAFFIC.totals[4]/TRAFFIC.totals[3]-1)*100)>0?'hi-green':'hi-red'}">${((TRAFFIC.totals[4]/TRAFFIC.totals[3]-1)*100).toFixed(1)}%</td><td style="color:var(--muted)">${fK(TRAFFIC.totals.reduce((a,b)=>a+b,0))}</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>`;
+
+  new Chart(document.getElementById('tra-chart'), {
+    type:'bar',
+    data:{
+      labels: months,
+      datasets: TRAFFIC.properties.slice(0,6).map((p,i)=>({
+        label:p.name, data:p.pv, backgroundColor:colors[i]+'99', borderColor:colors[i], borderWidth:1, stack:'s'
+      }))
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b8fa8',font:{size:10}}}},scales:{x:{stacked:true,ticks:{color:'#8b8fa8'}},y:{stacked:true,ticks:{color:'#8b8fa8',callback:v=>v>=1e6?(v/1e6).toFixed(0)+'M':v},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+// ── P&L / GOALS PAGE ──────────────────────────────────────────
+function buildPL() {
+  const fk = n => n==null?'—':'$'+(Math.abs(n)>=1000?(Math.abs(n)/1000).toFixed(1)+'M':Math.abs(n).toFixed(0)+'K');
+  const fm = n => n==null?'—':'$'+(n/1e6).toFixed(2)+'M';
+  const pct = (a,b) => b&&b>0?((a/b-1)*100).toFixed(1)+'%':'—';
+  const months = REV_GOALS.months;
+
+  document.getElementById('pl-main').innerHTML = `
+    <div class="card full" style="margin-bottom:1rem">
+      <div class="card-title">SMG Total Revenue — Actual vs Budget vs LY <span style="font-weight:400;color:var(--muted)">Jan–Nov 2026</span></div>
+      <div class="chart-wrap" style="height:240px"><canvas id="goals-chart"></canvas></div>
+      <div style="overflow-x:auto;margin-top:1.25rem"><table class="data-table">
+        <thead><tr><th>Month</th>${months.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+        <tbody>
+          <tr><td><strong>2026 Actual</strong></td>${REV_GOALS.actuals_2026.map(v=>`<td>${v?fm(v):'—'}</td>`).join('')}</tr>
+          <tr><td style="color:var(--muted)">2026 Budget</td>${REV_GOALS.budget_2026.map(v=>`<td style="color:var(--muted)">${fm(v)}</td>`).join('')}</tr>
+          <tr><td style="color:var(--muted)">2025 Actual</td>${REV_GOALS.actuals_2025.map(v=>`<td style="color:var(--muted)">${fm(v)}</td>`).join('')}</tr>
+          <tr><td style="color:var(--muted);font-size:11px">vs Budget</td>${REV_GOALS.actuals_2026.map((v,i)=>{
+            const b=REV_GOALS.budget_2026[i];
+            if(!v) return '<td>—</td>';
+            const d=((v/b-1)*100).toFixed(1);
+            return `<td class="${d>=0?'hi-green':'hi-red'}">${d>=0?'+':''}${d}%</td>`;
+          }).join('')}</tr>
+          <tr><td style="color:var(--muted);font-size:11px">vs LY</td>${REV_GOALS.actuals_2026.map((v,i)=>{
+            const l=REV_GOALS.actuals_2025[i];
+            if(!v) return '<td>—</td>';
+            const d=((v/l-1)*100).toFixed(1);
+            return `<td class="${d>=0?'hi-green':'hi-red'}">${d>=0?'+':''}${d}%</td>`;
+          }).join('')}</tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">P&L Summary — SMG ($000s) <span style="font-weight:400;color:var(--muted)">Jan–May 2026</span></div>
+        <div style="overflow-x:auto"><table class="data-table">
+          <thead><tr><th></th>${PL_DATA.months.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+          <tbody>
+            <tr><td style="color:var(--muted);font-size:11px">Total Revenue</td>${PL_DATA.smg_revenue.map(v=>`<td>${fk(v)}</td>`).join('')}</tr>
+            <tr><td style="color:var(--muted);font-size:11px">Total Expenses</td>${PL_DATA.smg_expense.map(v=>`<td style="color:var(--muted)">${fk(v)}</td>`).join('')}</tr>
+            <tr style="border-top:1px solid rgba(255,255,255,.08)">
+              <td style="color:var(--muted);font-size:11px">SMG EBITDA</td>
+              ${PL_DATA.smg_revenue.map((r,i)=>{
+                const e=r-PL_DATA.smg_expense[i];
+                return `<td class="${e>=0?'hi-green':'hi-red'}">${e>=0?'+':''}${fk(e)}</td>`;
+              }).join('')}
+            </tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Affiliate Network <span style="font-weight:400;color:var(--muted)">Jan–May 2026</span></div>
+        <div style="overflow-x:auto"><table class="data-table">
+          <thead><tr><th></th>${PL_DATA.months.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+          <tbody>
+            <tr><td style="color:var(--muted);font-size:11px">Revenue ($K)</td>${PL_DATA.affiliate_rev.map(v=>`<td>${fk(v)}</td>`).join('')}</tr>
+            <tr><td style="color:var(--muted);font-size:11px">EBITDA ($K)</td>${PL_DATA.affiliate_ebitda.map(v=>`<td class="${v>=0?'hi-green':'hi-red'}">${v>=0?'+':''}${fk(v)}</td>`).join('')}</tr>
+            <tr><td style="color:var(--muted);font-size:11px">Margin</td>${PL_DATA.affiliate_margin.map(v=>`<td style="color:var(--muted)">${v}</td>`).join('')}</tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>`;
+
+  new Chart(document.getElementById('goals-chart'), {
+    type:'bar',
+    data:{
+      labels: months,
+      datasets:[
+        { label:'2026 Actual', data:REV_GOALS.actuals_2026, backgroundColor:'rgba(59,130,246,.7)', borderColor:'#3b82f6', borderWidth:1 },
+        { label:'2026 Budget', data:REV_GOALS.budget_2026, backgroundColor:'rgba(245,158,11,.2)', borderColor:'#f59e0b', borderWidth:1, borderDash:[4,4] },
+        { label:'2025 Actual', data:REV_GOALS.actuals_2025, type:'line', borderColor:'#a855f7', backgroundColor:'transparent', borderWidth:2, pointRadius:3, pointBackgroundColor:'#a855f7' },
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b8fa8',font:{size:11}}}},scales:{x:{ticks:{color:'#8b8fa8'}},y:{ticks:{color:'#8b8fa8',callback:v=>'$'+(v/1e6).toFixed(1)+'M'},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+// Init traffic and P&L pages on tab click
+document.getElementById('tab-tra').addEventListener('click', ()=>{ if(!document.getElementById('tra-main').innerHTML) buildTraffic(); });
+document.getElementById('tab-pl').addEventListener('click',  ()=>{ if(!document.getElementById('pl-main').innerHTML)  buildPL(); });
 </script>
 </body>
 </html>
