@@ -434,6 +434,13 @@ function buildRev(){
         <div class="watch-list" id="wl"></div>
       </div>
     </div>
+    <div class="card full" style="margin-top:0">
+      <div class="card-title">Revenue by category — actual vs goal vs last year <span style="font-weight:400;color:var(--muted)" id="rg-month-lbl"></span></div>
+      <div style="overflow-x:auto"><table class="data-table">
+        <thead><tr><th>Category</th><th>Actual</th><th>Goal</th><th>vs Goal</th><th>LY Actual</th><th>vs LY</th><th>Next Mo Goal</th></tr></thead>
+        <tbody id="rg-rev-t"></tbody>
+      </table></div>
+    </div>
   `;
 
   // Month buttons
@@ -519,7 +526,46 @@ function buildRev(){
   document.getElementById('wc').textContent=WL.length;
   document.getElementById('wl').innerHTML=WL.length?WL.map(w=>`<div class="watch-item"><div><div class="watch-name">${w.n}</div><div class="watch-detail">${w.det}</div></div><span class="watch-tag tag-${w.tag}">${w.lbl}</span></div>`).join(''):`<div style="color:var(--muted);font-size:13px;padding:1rem 0;text-align:center">All clear ✓</div>`;
 
-
+  // ── REVENUE GOALS TABLE ─────────────────────────────────────
+  // Match selected month to RG index (RG months: Jan=0 … Nov=10)
+  const rgMoIdx = RG.months.indexOf(MN[mo-1]);
+  document.getElementById('rg-month-lbl').textContent = rgMoIdx>=0 ? `— ${MN[mo-1]} ${yr}` : '';
+  const rgTbody = document.getElementById('rg-rev-t');
+  if(rgMoIdx>=0 && rgTbody) {
+    let totAct=0, totBud=0, totLY=0;
+    rgTbody.innerHTML = RG.groups.map(g=>{
+      const act = g.act[rgMoIdx];
+      const bud = g.bud[rgMoIdx];
+      const lyv = g.ly[rgMoIdx]||null;
+      const nxt = g.bud[rgMoIdx+1]||null;
+      const vb  = (act!=null&&bud)?((act/bud-1)*100).toFixed(1):null;
+      const vl  = (act!=null&&lyv)?((act/lyv-1)*100).toFixed(1):null;
+      const cb  = vb===null?'':parseFloat(vb)>=0?'hi-green':'hi-red';
+      const cl  = vl===null?'':parseFloat(vl)>=0?'hi-green':'hi-red';
+      if(act!=null) totAct+=act;
+      if(bud) totBud+=bud;
+      if(lyv) totLY+=lyv;
+      return `<tr>
+        <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.color};margin-right:6px"></span><strong>${g.name}</strong><br><span style="font-size:10px;color:var(--muted)">${g.note}</span></td>
+        <td><strong>${act!=null?fk(act):'—'}</strong></td>
+        <td style="color:var(--muted)">${bud?fk(bud):'—'}</td>
+        <td class="${cb}">${vb!==null?(parseFloat(vb)>=0?'+':'')+vb+'%':'—'}</td>
+        <td style="color:var(--muted)">${lyv?fk(lyv):'—'}</td>
+        <td class="${cl}">${vl!==null?(parseFloat(vl)>=0?'+':'')+vl+'%':'—'}</td>
+        <td style="color:var(--muted);font-size:11px">${nxt?fk(nxt):'—'}</td>
+      </tr>`;
+    }).join('') +
+    `<tr style="border-top:1px solid rgba(255,255,255,.12);font-weight:600">
+      <td>Total</td>
+      <td>${fk(totAct)}</td>
+      <td style="color:var(--muted)">${fk(totBud)}</td>
+      <td class="${totAct>=totBud?'hi-green':'hi-red'}">${totBud?(totAct>=totBud?'+':'')+((totAct/totBud-1)*100).toFixed(1)+'%':'—'}</td>
+      <td style="color:var(--muted)">${totLY?fk(totLY):'—'}</td>
+      <td>—</td><td>—</td>
+    </tr>`;
+  } else if(rgTbody) {
+    rgTbody.innerHTML=`<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:1rem">No goal data available for ${MN[mo-1]} ${yr}</td></tr>`;
+  }
 
   document.getElementById('rev-state').style.display='none';
   document.getElementById('rev-main').style.display='';
