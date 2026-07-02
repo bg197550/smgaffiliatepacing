@@ -130,7 +130,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <nav class="nav">
   <div class="nav-tab active" id="tab-rev" onclick="showPage('rev',this)"><span class="nav-dot" style="background:#3b82f6"></span>Revenue</div>
   <div class="nav-tab" id="tab-tra" onclick="showPage('tra',this)"><span class="nav-dot" style="background:#14b8a6"></span>Traffic</div>
-  <div class="nav-tab" id="tab-pl" onclick="showPage('pl',this)"><span class="nav-dot" style="background:#a855f7"></span>P&L / Goals</div>
+  <div class="nav-tab" id="tab-rg" onclick="showPage('rg',this)"><span class="nav-dot" style="background:#22c55e"></span>Revenue Goals</div>
+  <div class="nav-tab" id="tab-pl" onclick="showPage('pl',this)"><span class="nav-dot" style="background:#a855f7"></span>P&L</div>
 </nav>
 
 <!-- REVENUE PAGE -->
@@ -144,7 +145,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <div id="tra-main"></div>
 </div>
 
-<!-- P&L / GOALS PAGE -->
+<!-- REVENUE GOALS PAGE -->
+<div class="page" id="page-rg">
+  <div id="rg-main"></div>
+</div>
+
+<!-- P&L PAGE -->
 <div class="page" id="page-pl">
   <div id="pl-main"></div>
 </div>
@@ -693,9 +699,160 @@ function buildPL() {
   });
 }
 
+// ── REVENUE GOALS DATA ($) ────────────────────────────────────
+const RG = {
+  months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'],
+  groups: [
+    {
+      name: 'Programmatic',
+      color: '#3b82f6',
+      note: 'Desktop Display, Desktop Video, Mobile Video, Mobile Display',
+      act:  [632193,481306,662902,591250,506379,null,null,null,null,null,null],
+      bud:  [602689,475740,608843,601998,518296,573519,502611,687923,758971,733922,774257],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0], // placeholder - add LY when available
+    },
+    {
+      name: 'Premium',
+      color: '#f59e0b',
+      note: 'Desktop Display Premium, Desktop Video Premium',
+      act:  [301054,343076,197391,151123,170983,null,null,null,null,null,null],
+      bud:  [224952,225968,229528,273063,204689,277945,181224,297896,348224,459178,312354],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0],
+    },
+    {
+      name: 'Sponsored Links',
+      color: '#14b8a6',
+      note: 'Digital Media Sponsored Links',
+      act:  [277284,155914,179364,158004,134412,null,null,null,null,null,null],
+      bud:  [130848,102978,112211,106546,90190,97482,92321,109068,125798,132410,134171],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0],
+    },
+    {
+      name: 'Affiliate',
+      color: '#a855f7',
+      note: 'Digital affiliate partnership revenue',
+      act:  [170988,72433,146371,109466,172086,null,null,null,null,null,null],
+      bud:  [154953,130113,223953,210153,177953,136553,127353,85953,196381,200953,246953],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0],
+    },
+    {
+      name: 'Syndication',
+      color: '#f97316',
+      note: 'Digital Syndication',
+      act:  [182233,113439,112332,135765,166448,null,null,null,null,null,null],
+      bud:  [226797,212994,223995,230502,224285,232135,242142,226068,238890,242869,241403],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0],
+    },
+    {
+      name: 'Ad Supported',
+      color: '#06b6d4',
+      note: 'Digital Ad Supported / Paywall',
+      act:  [31421,35873,43086,46883,36098,null,null,null,null,null,null],
+      bud:  [29674,32832,35363,35666,35862,35936,92149,103419,107386,91706,92158],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0],
+    },
+    {
+      name: 'Local Display',
+      color: '#ec4899',
+      note: 'Desktop Display Local',
+      act:  [157278,99749,133749,106959,102674,null,null,null,null,null,null],
+      bud:  [25585,43753,52621,52604,87074,87357,86594,106270,58350,50951,60346],
+      ly:   [0,0,0,0,0,0,0,0,0,0,0],
+    },
+  ],
+};
+
+function buildRG() {
+  const months = RG.months;
+  const fk = n => n==null?'—':'$'+(n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':n.toFixed(0));
+  const pct = (a,b) => (a==null||!b)?'—':((a/b-1)*100).toFixed(1)+'%';
+  const cls = (a,b) => (a==null||!b)?'':a>=b?'hi-green':'hi-red';
+
+  // YTD totals across all groups
+  const ytdAct = RG.groups.reduce((s,g)=>s+g.act.filter(v=>v!=null).reduce((a,b)=>a+b,0),0);
+  const ytdBud = RG.groups.reduce((s,g)=>s+g.bud.slice(0,g.act.filter(v=>v!=null).length).reduce((a,b)=>a+b,0),0);
+  const lastActMonth = RG.groups[0].act.reduce((li,v,i)=>v!=null?i:li,-1);
+  const lastMonthName = months[lastActMonth];
+
+  // KPI cards
+  const kpis = `
+    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.25rem">
+      <div class="kpi blue"><div class="kpi-label">YTD Revenue</div><div class="kpi-value">${fk(ytdAct)}</div><div class="kpi-note">Jan–${lastMonthName} 2026</div></div>
+      <div class="kpi ${ytdAct>=ytdBud?'green':'red'}"><div class="kpi-label">YTD Budget</div><div class="kpi-value">${fk(ytdBud)}</div><div class="kpi-note"><span class="kpi-badge ${ytdAct>=ytdBud?'badge-green':'badge-red'}">${ytdAct>=ytdBud?'▲':'▼'} ${Math.abs((ytdAct/ytdBud-1)*100).toFixed(1)}% vs budget</span></div></div>
+      ${RG.groups.slice(0,3).map(g=>{
+        const act=g.act[lastActMonth], bud=g.bud[lastActMonth];
+        const d=act&&bud?((act/bud-1)*100).toFixed(1):null;
+        return `<div class="kpi ${act>=bud?'green':'yellow'}"><div class="kpi-label">${g.name} — ${lastMonthName}</div><div class="kpi-value">${fk(act)}</div><div class="kpi-note">${d?`<span class="kpi-badge ${act>=bud?'badge-green':'badge-red'}">${d>=0?'▲':'▼'} ${Math.abs(d)}% vs budget</span>`:'—'}</div></div>`;
+      }).join('')}
+    </div>`;
+
+  // Group tables
+  const tables = RG.groups.map(g=>{
+    const actMonths = g.act.map((v,i)=>v!=null?i:-1).filter(i=>i>=0);
+    const ytdA = actMonths.reduce((s,i)=>s+g.act[i],0);
+    const ytdB = actMonths.reduce((s,i)=>s+g.bud[i],0);
+    const rows = actMonths.map(i=>{
+      const a=g.act[i], b=g.bud[i];
+      const d=a&&b?((a/b-1)*100).toFixed(1):null;
+      return `<tr>
+        <td style="color:var(--muted);font-size:11px">${months[i]}</td>
+        <td><strong>${fk(a)}</strong></td>
+        <td style="color:var(--muted)">${fk(b)}</td>
+        <td class="${cls(a,b)}">${d?`${d>=0?'+':''}${d}%`:'—'}</td>
+        <td style="color:var(--muted);font-size:11px">${fk(g.bud[i+1]||null)}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="card" style="margin-bottom:1rem">
+      <div class="card-title">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${g.color};margin-right:6px"></span>${g.name}</span>
+        <span style="font-weight:400;color:var(--muted);font-size:10px">${g.note}</span>
+        <span class="${cls(ytdA,ytdB)}" style="font-size:11px">YTD: ${fk(ytdA)} / ${fk(ytdB)} bud &nbsp; ${ytdA&&ytdB?`(${ytdA>=ytdB?'+':''}${((ytdA/ytdB-1)*100).toFixed(1)}%)`:''}
+        </span>
+      </div>
+      <div style="overflow-x:auto"><table class="data-table">
+        <thead><tr><th>Month</th><th>Actual</th><th>Budget</th><th>vs Bud</th><th>Next Mo Bud</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
+
+  // Full year bar chart - total actual vs budget by month
+  const chartActuals = months.map((_,i)=>RG.groups.reduce((s,g)=>s+(g.act[i]||0),0));
+  const chartBudgets = months.map((_,i)=>RG.groups.reduce((s,g)=>s+g.bud[i],0));
+  // Zero out future months with no actuals
+  const cleanActuals = chartActuals.map((v,i)=>RG.groups[0].act[i]!=null?v:null);
+
+  document.getElementById('rg-main').innerHTML = `
+    ${kpis}
+    <div class="card full" style="margin-bottom:1rem">
+      <div class="card-title">Total Revenue — Actual vs Budget 2026</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="rg-chart"></canvas></div>
+    </div>
+    ${tables}`;
+
+  new Chart(document.getElementById('rg-chart'), {
+    type:'bar',
+    data:{
+      labels: months,
+      datasets:[
+        { label:'Actual', data:cleanActuals, backgroundColor:'rgba(59,130,246,.75)', borderColor:'#3b82f6', borderWidth:1 },
+        { label:'Budget', data:chartBudgets, backgroundColor:'rgba(245,158,11,.15)', borderColor:'#f59e0b', borderWidth:1 },
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8b8fa8',font:{size:11}}}},
+      scales:{
+        x:{ticks:{color:'#8b8fa8'},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#8b8fa8',callback:v=>'$'+(v/1e6).toFixed(1)+'M'},grid:{color:'rgba(255,255,255,.04)'}}
+      }
+    }
+  });
+}
+
 // Init traffic and P&L pages on tab click
 document.getElementById('tab-tra').addEventListener('click', ()=>{ if(!document.getElementById('tra-main').innerHTML) buildTraffic(); });
-document.getElementById('tab-pl').addEventListener('click',  ()=>{ if(!document.getElementById('pl-main').innerHTML)  buildPL(); });
+document.getElementById('tab-rg').addEventListener('click',  ()=>{ if(!document.getElementById('rg-main').innerHTML)   buildRG(); });
+document.getElementById('tab-pl').addEventListener('click',  ()=>{ if(!document.getElementById('pl-main').innerHTML)   buildPL(); });
 </script>
 </body>
 </html>
