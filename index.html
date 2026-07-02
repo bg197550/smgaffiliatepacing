@@ -569,7 +569,19 @@ function buildRev(){
   const mGAM=mtd.filter(r=>r.Source==='GAM').reduce((s,r)=>s+pn(r.Revenue),0);
   const mXan=mtd.filter(r=>r.Source==='Xandr').reduce((s,r)=>s+pn(r.Revenue),0);
 
-  const budRow=rows2.find(r=>r.Month&&r.Month.startsWith(pfx));
+  // Budget row lookup — handles YYYY-MM, M/D/YYYY, and date object formats
+  const budRow=rows2.find(r=>{
+    if(!r.Month) return false;
+    const m = String(r.Month).trim();
+    if(m.startsWith(pfx)) return true; // YYYY-MM format
+    // M/D/YYYY or MM/DD/YYYY format
+    const parts = m.split('/');
+    if(parts.length===3){
+      const mm=parts[0].padStart(2,'0'), yy=parts[2].slice(0,4);
+      return yy+'-'+mm === pfx;
+    }
+    return false;
+  });
   const bud=budRow?pn(budRow.Budget):0;
   const ly=budRow?pn(budRow['LY Actual']):0;
   const fore=elapsed>0?(mRev/elapsed)*totDays:0;
