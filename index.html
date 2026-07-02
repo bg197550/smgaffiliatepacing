@@ -385,7 +385,7 @@ function buildRev(){
   const decls=[...wt].sort((a,b)=>a.t-b.t).slice(0,3);
   const gp=mRev>0?(mGAM/mRev*100).toFixed(0):0;
   const xp=mRev>0?(mXan/mRev*100).toFixed(0):0;
-  const maxLY=Math.max(...rows2.filter(r=>r['LY Actual']).map(r=>pn(r['LY Actual'])));
+  // maxLY removed (budget bar chart replaced with run rate table)
 
   const el=document.getElementById('rev-main');
   el.innerHTML=`
@@ -422,9 +422,15 @@ function buildRev(){
         <div class="watch-list" id="wl"></div>
       </div>
     </div>
-    <div class="card full">
-      <div class="card-title">2026 budget vs last year actual</div>
-      <div id="bb"></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Run rate — actual vs budget vs last year</div>
+        <div id="rr"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">eCPM analysis — by partner</div>
+        <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Partner</th><th>eCPM</th><th>Impressions</th><th>Revenue</th><th>vs Avg</th></tr></thead><tbody id="ecpm-t"></tbody></table></div>
+      </div>
     </div>`;
 
   // Month buttons
@@ -510,13 +516,75 @@ function buildRev(){
   document.getElementById('wc').textContent=WL.length;
   document.getElementById('wl').innerHTML=WL.length?WL.map(w=>`<div class="watch-item"><div><div class="watch-name">${w.n}</div><div class="watch-detail">${w.det}</div></div><span class="watch-tag tag-${w.tag}">${w.lbl}</span></div>`).join(''):`<div style="color:var(--muted);font-size:13px;padding:1rem 0;text-align:center">All clear ✓</div>`;
 
-  // Budget bars
-  document.getElementById('bb').innerHTML=rows2.filter(r=>r.Month&&r.Budget).map(r=>{
-    const b=pn(r.Budget),l=pn(r['LY Actual']);
-    const lbl=MN[+r.Month.split('-')[1]-1];
-    const cur=r.Month.startsWith(pfx);
-    return `<div class="bar-row"><div class="bar-month" style="${cur?'color:var(--yellow);font-weight:700':''}">${lbl}</div><div class="bar-bg"><div class="bar-ly" style="width:${(l/maxLY*100).toFixed(1)}%;background:${cur?'rgba(59,130,246,.6)':'rgba(59,130,246,.25)'}"></div><div class="bar-bud" style="width:${(b/maxLY*100).toFixed(1)}%"></div></div><div class="bar-val">${(l/1e6).toFixed(2)}M</div><span class="badge-sm" style="${l>=b?'background:rgba(34,197,94,.15);color:#22c55e':'background:rgba(239,68,68,.15);color:#ef4444'}">${l>=b?'▲ ahead':'▼ behind'}</span></div>`;
-  }).join('');
+  // ── RUN RATE PANEL ─────────────────────────────────────────────
+  // avgD = actual daily run rate this month
+  // budDay = budget daily rate = bud/totDays
+  // lyDay = LY daily rate = ly/totDays
+  // fore = projected month-end at current run rate
+  const budDay = bud>0 ? bud/totDays : 0;
+  const lyDay  = ly>0  ? ly/totDays  : 0;
+  const lyMTD  = lyDay * elapsed; // LY implied MTD at same pace
+  const lyFore = ly; // LY full month actual
+  const rrRows = [
+    { lbl:'Daily Run Rate',      act: avgD,    bud: budDay,  lya: lyDay,   fmt: fk },
+    { lbl:'MTD Actual',          act: mRev,    bud: budDay*elapsed, lya: lyMTD, fmt: fk },
+    { lbl:'Month-End Forecast',  act: fore,    bud: bud,     lya: lyFore,  fmt: fk },
+    { lbl:'vs Budget',           act: fore-bud, bud: 0,      lya: fore-lyFore, fmt: v=>( v>=0?'+':'')+fk(Math.abs(v)), delta:true },
+  ];
+  document.getElementById('rr').innerHTML=`
+    <table class="data-table">
+      <thead><tr><th>Metric</th><th>Actual</th><th>Budget</th><th>vs Budget</th><th>LY Actual</th><th>vs LY</th></tr></thead>
+      <tbody>${rrRows.filter(r=>!r.delta).map(r=>{
+        const vb = bud>0  ? (r.act/r.bud-1)*100 : null;
+        const vl = ly>0   ? (r.act/r.lya-1)*100 : null;
+        const cb = vb===null?'':vb>=0?'hi-green':'hi-red';
+        const cl = vl===null?'':vl>=0?'hi-green':'hi-red';
+        return `<tr>
+          <td style="color:var(--muted);font-size:11px">${r.lbl}</td>
+          <td><strong>${r.fmt(r.act)}</strong></td>
+          <td>${r.bud>0?r.fmt(r.bud):'—'}</td>
+          <td class="${cb}">${vb===null?'—':(vb>=0?'+':'')+vb.toFixed(1)+'%'}</td>
+          <td>${r.lya>0?r.fmt(r.lya):'—'}</td>
+          <td class="${cl}">${vl===null?'—':(vl>=0?'+':'')+vl.toFixed(1)+'%'}</td>
+        </tr>`;
+      }).join('')}
+      <tr style="border-top:1px solid rgba(255,255,255,.08)">
+        <td style="color:var(--muted);font-size:11px">Month-End Variance</td>
+        <td colspan="2" class="${fore>=bud?'hi-green':'hi-red'}"><strong>${fore>=bud?'+':''} ${fk(Math.abs(fore-bud))} vs budget</strong></td>
+        <td></td>
+        <td colspan="2" class="${fore>=ly?'hi-green':'hi-red'}"><strong>${fore>=ly?'+':''} ${fk(Math.abs(fore-ly))} vs LY</strong></td>
+      </tr></tbody>
+    </table>
+    <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+      At current <strong style="color:var(--text)">${fk(avgD)}/day</strong> run rate over ${elapsed} days · 
+      Need <strong style="color:${req<=avgD?'var(--green)':'var(--yellow)'}">${fk(req)}/day</strong> to hit budget over ${remaining} remaining days
+    </div>`;
+
+  // ── eCPM ANALYSIS TABLE ─────────────────────────────────────────
+  const ecpmData = partners.map(([name,p])=>({
+    name, rev:p.rev, imp:p.imp,
+    ecpm: p.imp>0 ? p.rev/(p.imp/1000) : 0
+  })).filter(r=>r.imp>0).sort((a,b)=>b.ecpm-a.ecpm);
+  const wtdEcpm = ecpmData.reduce((s,r)=>s+r.imp,0) > 0
+    ? ecpmData.reduce((s,r)=>s+r.rev,0) / (ecpmData.reduce((s,r)=>s+r.imp,0)/1000)
+    : 0;
+  const ecpmTbody = document.getElementById('ecpm-t');
+  ecpmTbody.innerHTML = ecpmData.map(r=>{
+    const diff = wtdEcpm>0 ? (r.ecpm/wtdEcpm-1)*100 : 0;
+    const dc = diff>=10?'hi-green':diff<=-10?'hi-red':'';
+    return `<tr>
+      <td><strong>${r.name}</strong></td>
+      <td><strong style="color:${r.ecpm>=wtdEcpm?'var(--green)':'var(--muted)'}">${fd(r.ecpm,2)}</strong></td>
+      <td style="color:var(--muted);font-size:11px">${(r.imp/1e6).toFixed(1)}M</td>
+      <td>${fk(r.rev)}</td>
+      <td class="${dc}">${diff>=0?'+':''}${diff.toFixed(0)}%</td>
+    </tr>`;
+  }).join('') +
+  `<tr style="border-top:1px solid rgba(255,255,255,.08);font-size:11px">
+    <td style="color:var(--muted)">Weighted Avg</td>
+    <td><strong>${fd(wtdEcpm,2)}</strong></td>
+    <td colspan="3" style="color:var(--muted)">across all partners</td>
+  </tr>`;
 
   document.getElementById('rev-state').style.display='none';
   document.getElementById('rev-main').style.display='';
